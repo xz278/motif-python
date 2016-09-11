@@ -168,11 +168,19 @@ class Graph:
 				return True
 		return False
 
-	def printMotif(self):
+	def write_motif(self,outputfilename):
 		"""
-		TBD
+		Write motif info to csv file.
 		"""
-
+		nNodes = len(self.am)
+		nAlt = len(self.alt)
+		if self.isInterch:
+			isInterch = 1
+		else:
+			isInterch = 0
+		with open(outputfilename,'w') as f:
+			f.write(str(nNodes),',',str(nAlt),',',str(isInterch));
+			
 
 
 # def haversine(lon1, lat1, lon2, lat2):
