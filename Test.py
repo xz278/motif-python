@@ -73,3 +73,31 @@ def get_permlist_helper(ls,pos,currl,retls):
 	for i in range(lc):
 		# print currl, currPmt
 		get_permlist_helper(ls,pos+1,currl + currPmt[i],retls)
+
+def read_data(input_filename):
+	"""
+	Input: filename for locations
+	Output: 2d matrix storing the locations
+	"""
+	output_matrix = [];
+	with open(input_filename,'r') as f:
+		lines = f.readlines()
+		for line in lines:
+			l = line.split()
+			fs = l[0].split(',')
+			temp = [float(fs[0]),float(fs[1])]
+			output_matrix.append(temp)
+	return output_matrix
+
+def read_dist_matrix(input_filename):
+	output_matrix = []
+	with open(input_filename,'r') as f:
+		lines = f.readlines()
+		for line in lines:
+			l = line.split()
+			fs = l[0].split(',')
+			temp = []
+			for t in fs:
+				temp.append(float(t))
+			output_matrix.append(temp)
+	return output_matrix

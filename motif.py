@@ -3,6 +3,20 @@ motif analysis
 
 """
 
+import pickle
+from math import radians, cos, sin, asin, sqrt
+from sklearn.cluster import DBSCAN
+
+
+def save_to_file(output_file_name,data):
+	with open(output_file_name,'wb') as f:
+		pickle.dump(data,f)
+
+def read_from_file(input_file_name):
+	with open('input_file_name','rb') as f:
+		ret = pickle.load(f)
+	return ret
+
 class Graph:
 	"""
 	A graph object stores the information for a store
@@ -77,7 +91,7 @@ class Graph:
 		if nperm > 1:
 			for i in range(1,nperm):
 				self.alt.append(self._rearrange(permlist[i]))
-		self._changeto(permlist[0])
+		self._change_to(permlist[0])
 
 
 
@@ -116,7 +130,7 @@ class Graph:
 			currls.remove(temp)
 
 
-	def _changeto(self,idx):
+	def _change_to(self,idx):
 		nv = len(idx)
 		temp_am = [row[:] for row in self.am] # alt: use copy() or deepcopy() imported from copy
 		temp_outdeg = list(self.outdeg)
@@ -138,7 +152,7 @@ class Graph:
 				newgraph[i][j] = self.am[idx[i]][idx[j]]
 		return newgraph
 
-	def isIsmTo(self,other_graph):
+	def ism_To(self,other_graph):
 		l1 = len(self.am)
 		l2 = len(other_graph.am)
 		if l1 != l2:
@@ -153,3 +167,65 @@ class Graph:
 			if self.alt[i] == other_graph.am:
 				return True
 		return False
+
+	def printMotif(self):
+		"""
+		TBD
+		"""
+
+
+
+# def haversine(lon1, lat1, lon2, lat2):
+def haversine(lat1, lon1, lat2, lon2):
+	"""
+	calcuate distance between two gps coordinates to meters
+	"""
+	# convert decimal degrees to radians 
+	lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+	# haversine formula 
+	dlon = lon2 - lon1 
+	dlat = lat2 - lat1 
+	a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+	c = 2 * asin(sqrt(a)) 
+	m = 6371000 * c
+	return m
+
+class ClusterEngine():
+	"""
+	This class is used to cluster locations into clusters for motif analysis
+	"""
+	def __init__(self, data = [], algo = 'dbscan', eps = 10, minpts = 10):
+		self.data = data
+		self.algo = algo
+		self.eps = eps
+		self.minpts = minpts
+		n = len(data)
+		self.labels = [-1] * n
+		self.dist_matrix = [[0] * n for _ in range(n)]
+
+
+	def run(self):
+		self._compute_dist_matrix()
+		self._run_cluster_algo()
+
+	def _run_cluster_algo(self):
+		if self.algo == 'dbscan':
+			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
+
+	def _compute_dist_matrix(self):
+		"""
+		calculate pairwise distance
+		"""
+		n = len(self.data)
+		for i in range(n-1):
+			for j in range(i+1,n):
+				self.dist_matrix[i][j] = haversine(self.data[i][0],self.data[i][1],self.data[j][0],self.data[j][1])
+				self.dist_matrix[j][i] = self.dist_matrix[i][j]
+
+	def write_labels(self,outputfilename):
+		with open(outputfilename,'w') as f:
+			n = len(self.labels)
+			for i in range(n-1):
+				f.write(str(self.labels[i]))
+				f.write('\n')
+			f.write(str(self.labels[-1]))
