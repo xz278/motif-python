@@ -8,9 +8,8 @@ class Graph:
 	A graph object stores the information for a store
 
 	Args:
-		adjmat: adjacency matrix
-		locsion: locations (cluster ids)
-	Returns:
+		am: adjacency matrix
+		locs: location ids (cluster ids)
 
 	Test example:
 	from motif import Graph
