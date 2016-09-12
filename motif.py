@@ -154,7 +154,7 @@ class Graph:
 				newgraph[i][j] = self.am[idx[i]][idx[j]]
 		return newgraph
 
-	def ism_To(self,other_graph):
+	def ism_to(self,other_graph):
 		l1 = len(self.am)
 		l2 = len(other_graph.am)
 		if l1 != l2:
