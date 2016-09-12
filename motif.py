@@ -19,6 +19,8 @@ def read_from_file(input_file_name):
 
 class Graph:
 	"""
+	TO-DO: modify methods for non-interchangable graph
+
 	A graph object stores the information for a store
 
 	Args:
@@ -179,7 +181,59 @@ class Graph:
 		else:
 			isInterch = 0
 		with open(outputfilename,'w') as f:
-			f.write(str(nNodes),',',str(nAlt),',',str(isInterch));
+			# f.write(str(nNodes) + ',' + str(nAlt) + ',' + str(isInterch) + '\n'); # write mega
+			f.write(str(nNodes) + ',' + str(isInterch) + '\n'); # write mega
+			# write first adjacency matrix
+			for i in range(nNodes):
+				templine = ''
+				for j in range(nNodes):
+					if self.am[i][j] == 1:
+						templine += str(j) + ','
+				f.write(templine[:-1] + '\n')
+			# # write alternative adjacency matrix if exists any
+			# if self.isInterch:
+			# 	for a in range(nAlt):
+			# 		for i in range(nNodes):
+			# 			templine = ''
+			# 			for j in range(nNodes):
+			# 				if self.alt[a][i][j] == 1:
+			# 					templine += str(j) + ','
+			# 			f.write(templine[:-1] + '\n')
+			# write location ids if nodes are interchangable
+			if isInterch:
+				temploc = ''
+				for i in range(nNodes):
+					temploc += str(self.locs[i]) + ','
+				f.write(temploc[:-1] + '\n')
+
+	@staticmethod
+	def read_motif('input_file_name'):
+		with open(input_file_name,'r') as f:
+			lines = f.readlines()
+			num_lines = len(lines)
+			mega_info = lines[0].split()[0].split(',')
+			num_nodes = int(mega_info[0])
+			if int(mega_info[1]) == 1:
+				isInterch = True
+			else:
+				isInterch = False
+			am = [[0] * num_nodes for _ in range(num_nodes)]
+			if isInterch:
+				locs = [0] * num_nodes
+			else:
+				locs = []
+			for i in range(num_nodes):
+				line_idx = i + 1
+				adj_list = lines[line_idx].split()[0].split(',')
+				out_degress = len(adj_list)
+				if out_degress == 0:
+					continue
+				for j in range(out_degress):
+					am[i][int(adj_list[j])] = 1
+			return Graph(am = am, locs = locs)
+
+
+
 			
 
 
