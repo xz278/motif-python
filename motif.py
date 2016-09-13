@@ -2,7 +2,11 @@
 motif analysis
 
 """
-
+import numpy as np
+import matplotlib.pyplot as plt
+import OpticsClusterArea as OP
+from itertools import *
+import AutomaticClustering as AutoC
 import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
@@ -16,6 +20,23 @@ def read_from_file(input_file_name):
 	with open('input_file_name','rb') as f:
 		ret = pickle.load(f)
 	return ret
+
+def read_data(input_filename):
+	"""
+	Input: filename for locations
+	Output: 2d matrix storing the locations
+	"""
+	output_matrix = [];
+	with open(input_filename,'r') as f:
+		lines = f.readlines()
+		for line in lines:
+			l = line.split()
+			fs = l[0].split(',')
+			temp = [float(fs[0]),float(fs[1])]
+			output_matrix.append(temp)
+	return output_matrix
+
+
 
 class Graph:
 	"""
@@ -32,6 +53,8 @@ class Graph:
 	g1 = [[0,0,0],[1,0,1],[1,0,0]]
 	g2 = [[0,1,0,1],[1,0,0,0],[0,0,0,0],[1,0,1,0]]
 	g3 = [[0,1,1],[1,0,1],[0,0,0]]
+	g5 = [[0,1,1],[0,0,1],[0,0,0]]
+	locs = [1,2,3]
 	g4 = [[0,0,0],[1,0,0],[1,1,0]]
 	g = Graph(am = g1)
 
@@ -90,9 +113,12 @@ class Graph:
 		permlist = self._get_perm_list(listToCombine)
 		nperm = len(permlist)
 		self.alt = []
+		self.alt_loc = []
 		if nperm > 1:
 			for i in range(1,nperm):
-				self.alt.append(self._rearrange(permlist[i]))
+				temp_alt_am, temp_alt_loc = self._rearrange(permlist[i])
+				self.alt.append(temp_alt_am)
+				self.alt_loc.append(temp_alt_loc)
 		self._change_to(permlist[0])
 
 
@@ -133,6 +159,11 @@ class Graph:
 
 
 	def _change_to(self,idx):
+		"""
+		change current adj mat to the one specified by idx
+		Args:
+			idx: new order list for the adjacency list
+		"""
 		nv = len(idx)
 		temp_am = [row[:] for row in self.am] # alt: use copy() or deepcopy() imported from copy
 		temp_outdeg = list(self.outdeg)
@@ -147,28 +178,51 @@ class Graph:
 				self.am[i][j] = temp_am[idx[i]][idx[j]]
 
 	def _rearrange(self,idx):
+		"""
+		Reorder the adjcency matrix to the specified new adjmat
+		Args:
+			idx: new order for the adjacency matrix
+		Return:
+			A new adjacency matrix, without changing current grpah object
+		"""
 		nv = len(idx)
 		newgraph = [row[:] for row in self.am]
+		new_loc = [0] * nv
 		for i in range(nv):
+			new_loc[i] = self.locs[idx[i]]
 			for j in range(nv):
 				newgraph[i][j] = self.am[idx[i]][idx[j]]
-		return newgraph
+		return newgraph, new_loc
 
 	def ism_to(self,other_graph):
 		l1 = len(self.am)
 		l2 = len(other_graph.am)
 		if l1 != l2:
 			return False
-		isISM = self.am == other_graph.am
-		if isISM:
-			return True
-		l = len(self.alt)
-		if l == 0:
+		if self.isInterch != other_graph.isInterch:
 			return False
-		for i in range(l):
-			if self.alt[i] == other_graph.am:
+		if self.isInterch:
+			is_ism = (self.am == other_graph.am) and (self.locs == other_graph.locs)
+			if is_ism:
 				return True
-		return False
+			l = len(self.alt)
+			if l == 0:
+				return False
+			for i in range(l):
+				if (self.alt[i] == other_graph.am) and (self.alt_loc[i] == other_graph.locs):
+					return True
+			return False
+		else:
+			is_ism = self.am == other_graph.am
+			if is_ism:
+				return True
+			l = len(self.alt)
+			if l == 0:
+				return False
+			for i in range(l):
+				if self.alt[i] == other_graph.am:
+					return True
+			return False
 
 	def write_motif(self,outputfilename):
 		"""
@@ -207,7 +261,7 @@ class Graph:
 				f.write(temploc[:-1] + '\n')
 
 	@staticmethod
-	def read_motif('input_file_name'):
+	def read_motif(input_file_name):
 		with open(input_file_name,'r') as f:
 			lines = f.readlines()
 			num_lines = len(lines)
@@ -224,12 +278,17 @@ class Graph:
 				locs = []
 			for i in range(num_nodes):
 				line_idx = i + 1
-				adj_list = lines[line_idx].split()[0].split(',')
-				out_degress = len(adj_list)
-				if out_degress == 0:
+				cells = lines[line_idx].split()
+				if len(cells)==0:
 					continue
+				adj_list = cells[0].split(',')
+				out_degress = len(adj_list)
 				for j in range(out_degress):
 					am[i][int(adj_list[j])] = 1
+			if isInterch:
+				cells = lines[-1].split()[0].split(',')
+				for i in range(len(cells)):
+					locs[i] = int(cells[i])
 			return Graph(am = am, locs = locs)
 
 
@@ -268,11 +327,17 @@ class ClusterEngine():
 
 	def run(self):
 		self._compute_dist_matrix()
-		self._run_cluster_algo()
+		self._run_cluster_algo()	
 
 	def _run_cluster_algo(self):
+		"""
+		Return clusters, -1 for noise
+		"""
 		if self.algo == 'dbscan':
 			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
+		if self.algo == 'optics':
+			self.labels = self._optics_cluster()
+
 
 	def _compute_dist_matrix(self):
 		"""
@@ -291,3 +356,50 @@ class ClusterEngine():
 				f.write(str(self.labels[i]))
 				f.write('\n')
 			f.write(str(self.labels[-1]))
+
+	def plot_cluster(self):
+		X = np.array(self.data)
+		n = np.size(X,0)
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+
+		ax.plot(X[:,0], X[:,1], 'y.')
+		colors = cycle('gmkrcbgrcmk')
+		unique_cluster = np.unique(self.labels)
+		unique_cluster = unique_cluster[1:]
+		clrs = zip(unique_cluster,colors)
+		# for i in range(n):
+		#     ax.plot(X[i,0],X[i,1], clrs[self.labels[i]][1]+'o', ms=5)
+		if len(unique_cluster) != 0:
+			for i in range(n):
+				c = self.labels[i]
+				if c == -1:
+					continue
+			    ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+
+
+		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
+		    orientation='portrait', papertype=None, format=None,
+		    transparent=False, bbox_inches=None, pad_inches=0.1)
+		plt.show()
+
+	def _optics_cluster(self):
+	    x = np.array(self.data)
+	    RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
+	    RPlot = []
+	    RPoints = []
+	    num_points = np.size(x,0)
+	    for item in order:
+	        RPlot.append(RD[item])
+	        RPoints.append([x[item][0],x[item][1]])
+
+	    rootNode = AutoC.automaticCluster(RPlot, RPoints)
+	    leaves = AutoC.getLeaves(rootNode, [])
+
+	    temp_labels = np.ones((num_points)) * -1
+	    cluster_cnt = -1
+	    for leaf in leaves:
+	        cluster_cnt += 1
+	        for v in range(leaf.start, leaf.end):
+	            temp_labels[v] = cluster_cnt
+	    self.labels = labels
