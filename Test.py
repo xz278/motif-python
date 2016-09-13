@@ -7,32 +7,24 @@ g5 = [[0,1,1],[0,0,1],[0,0,0]]
 locs = [1,2,3]
 g4 = [[0,0,0],[1,0,0],[1,1,0]]
 g = Graph(am = g1)
+
+from motif import *
+x = read_data('testd.csv')
+ce = ClusterEngine(data = x, algo = 'optics')
+ce.run()
+ce.plot_cluster()
+
+from motif import *
+x = read_data('testd.csv')
+ce2 = ClusterEngine(data = x, algo = 'dbscan')
+ce2.run()
+ce2.plot_cluster()
+
+
 """
 
-class Hellow:
-	"""
-		Test python classes
-	"""
-	def __init__(self,value = -1):
-		self.value = value
-		self.disp()
-		# print self.perm()
-		if self.value == -1:
-		# 	print 'default value'
-		# else:
-		# 	print 'custom value'
-			print 'default value'
-			return
-		print 'new value'
-
-
-
-	def disp(self):
-		print self.value
-
-	def perm(self):
-		self.value = self.value ** 2
-		return 'Done.'
+import numpy as np
+import matplotlib.pyplot as plt
 
 def perm(ls):
 	retls = []

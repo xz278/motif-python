@@ -375,7 +375,8 @@ class ClusterEngine():
 				c = self.labels[i]
 				if c == -1:
 					continue
-			    ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+				else:
+					ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
 
 
 		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
@@ -396,10 +397,11 @@ class ClusterEngine():
 	    rootNode = AutoC.automaticCluster(RPlot, RPoints)
 	    leaves = AutoC.getLeaves(rootNode, [])
 
-	    temp_labels = np.ones((num_points)) * -1
+	    temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
 	    cluster_cnt = -1
 	    for leaf in leaves:
 	        cluster_cnt += 1
 	        for v in range(leaf.start, leaf.end):
-	            temp_labels[v] = cluster_cnt
-	    self.labels = labels
+				cluster_idx = order[v]
+				temp_labels[cluster_idx] = cluster_cnt
+	    return temp_labels
