@@ -10,6 +10,8 @@ import AutomaticClustering as AutoC
 import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
+import time
+import hdbscan
 
 
 def save_to_file(output_file_name,data):
@@ -311,6 +313,36 @@ def haversine(lat1, lon1, lat2, lon2):
 	m = 6371000 * c
 	return m
 
+def vectorized_haversine(X):
+	"""
+	vectorized haversine function.
+
+	Args:
+		X is n-by-2 matrix, storing lat & lon each row
+		X should be in the form of numpy.array
+	Return:
+		D is an n-by-n pairwise distance matrix
+	"""
+
+	# convert decimal degrees to radians
+	v_radians = np.vectorize(radians,otypes = [np.float])
+	v_sin = np.vectorize(sin,otypes = [np.float])
+	v_cos = np.vectorize(cos,otypes = [np.float])
+	v_asin = np.vectorize(asin,otypes = [np.float])
+	v_sqrt = np.vectorize(sqrt,otypes = [np.float])
+	n = np.size(X,0)
+	X2 = v_radians(X)
+	lat1 = np.tile(X[:,0],[n,1]).T
+	lat2 = np.tile(X[:,0],[n,1])
+	dlat = lat1 - lat2
+	lon1 = np.tile(X[:,1],[n,1]).T
+	lon2 = np.tile(X[:,1],[n,1])
+	dlon = lon1 - lon2
+	a = v_sin(dlat/2)**2 + v_cos(lat1) * v_cos(lat2) * v_sin(dlon/2)**2
+	c = 2 * v_asin(v_sqrt(a))
+	m = 6371000 * c
+	return m
+
 class ClusterEngine():
 	"""
 	This class is used to cluster locations into clusters for motif analysis
@@ -325,29 +357,37 @@ class ClusterEngine():
 		self.dist_matrix = [[0] * n for _ in range(n)]
 
 
-	def run(self):
-		self._compute_dist_matrix()
-		self._run_cluster_algo()	
+	def run(self,show_time = False):
+		self._compute_dist_matrix(show_time)
+		self._run_cluster_algo(show_time)	
 
-	def _run_cluster_algo(self):
+	def _run_cluster_algo(self, show_time = False):
 		"""
 		Return clusters, -1 for noise
 		"""
+		start_time = time.time()
 		if self.algo == 'dbscan':
 			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
 		if self.algo == 'optics':
 			self.labels = self._optics_cluster()
+		if self.algo == 'hdbscan':
+			self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
+		if show_time:
+			print 'Clustering time: ' + str(time.time() - start_time) + ' seconds.'
 
 
-	def _compute_dist_matrix(self):
+	def _compute_dist_matrix(self, show_time = False):
 		"""
 		calculate pairwise distance
 		"""
+		start_time = time.time()
 		n = len(self.data)
 		for i in range(n-1):
 			for j in range(i+1,n):
 				self.dist_matrix[i][j] = haversine(self.data[i][0],self.data[i][1],self.data[j][0],self.data[j][1])
 				self.dist_matrix[j][i] = self.dist_matrix[i][j]
+		if show_time:
+			print 'Computing distance matrix time: ' + str(time.time() - start_time) + ' seconds.'
 
 	def write_labels(self,outputfilename):
 		with open(outputfilename,'w') as f:
