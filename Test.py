@@ -131,36 +131,25 @@ def vectorized_haversine(X):
 	return m
 
 def vectorized_haversine2(X):
-	"""
-	vectorized haversine function.
-
-	Args:
-		X is n-by-2 matrix, storing lat & lon each row
-		X should be in the form of numpy.array
-	Return:
-		D is an n-by-n pairwise distance matrix
-	"""
-
 	start_time = time.time()
-	# convert decimal degrees to radians
 	v_radians = np.vectorize(radians,otypes = [np.float])
 	v_sin = np.vectorize(sin,otypes = [np.float])
 	v_cos = np.vectorize(cos,otypes = [np.float])
-	v_asin = np.vectorize(asin,otypes = [np.float])
-	v_sqrt = np.vectorize(sqrt,otypes = [np.float])
 	n = np.size(X,0)
 	X2 = v_radians(X)
-	lat1 = np.tile(X2[:,0],[n,1]).T
-	lat2 = np.tile(X2[:,0],[n,1])
-	dlat = lat1 - lat2
-	lon1 = np.tile(X2[:,1],[n,1]).T
-	lon2 = np.tile(X2[:,1],[n,1])
-	dlon = lon1 - lon2
-	a = v_sin(dlat/2)**2 + v_cos(lat1) * v_cos(lat2) * v_sin(dlon/2)**2
-	c = 2 * v_asin(v_sqrt(a))
-	m = 6371000 * c
-	print 'Vectorized computation: ' + str(time.time() - start_time) + ' seconds.'
-	return m
+	lat = X2[:,0]
+	cos_lat = v_cos(lat)
+	lon = X2[:,1]
+	D = np.zeros(shape = [n,n], dtype = 'float')
+	for i in range(n-1):
+		for j in range(i+1,n):
+			temp1 = sin((lat[i]-lat[j])/2)**2
+			temp2 = cos_lat[i] * cos_lat[j] * sin((lon[i]-lon[j])/2)**2
+			temp3 = 6371000 * 2 * asin(sqrt(temp1+temp2))
+			D[i,j] = temp3
+			D[j,i] = temp3
+	print 'Optimized computation: ' + str(time.time() - start_time) + ' seconds.'
+	return D
 
 def compute_dist_matrix(data):
 	"""

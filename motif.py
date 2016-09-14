@@ -313,6 +313,7 @@ def haversine(lat1, lon1, lat2, lon2):
 	m = 6371000 * c
 	return m
 
+
 def vectorized_haversine(X):
 	"""
 	vectorized haversine function.
@@ -342,6 +343,41 @@ def vectorized_haversine(X):
 	c = 2 * v_asin(v_sqrt(a))
 	m = 6371000 * c
 	return m
+
+def vectorized_haversine2(X):
+	"""
+	vectorized haversine function.
+
+	Args:
+		X is n-by-2 matrix, storing lat & lon each row
+		X should be in the form of numpy.array
+	Return:
+		D is an n-by-n pairwise distance matrix
+	"""
+
+	# convert decimal degrees to radians
+	v_radians = np.vectorize(radians,otypes = [np.float])
+	v_sin = np.vectorize(sin,otypes = [np.float])
+	v_cos = np.vectorize(cos,otypes = [np.float])
+	n = np.size(X,0)
+	X2 = v_radians(X)
+	lat = X2[:,0]
+	cos_lat = v_cos(lat)
+	lon = X2[:,1]
+	D = np.zeros(shape = [n,n], dtype = 'float')
+	for i in range(n-1):
+		for j in range(i+1,n):
+			temp1 = sin((lat[i]-lat[j])/2)**2
+			temp2 = cos_lat[i] * cos_lat[j] * sin((lon[i]-lon[j])/2)**2
+			temp3 = 6371000 * 2 * asin(sqrt(temp1+temp2))
+			D[i,j] = temp3
+			D[j,i] = temp3
+
+	# a = v_sin(dlat/2)**2 + v_cos(lat1) * v_cos(lat2) * v_sin(dlon/2)**2
+	# a =       p1       +       p2    *     p3      *        p4
+	# c = 2 * v_asin(v_sqrt(a))
+	# m = 6371000 * c
+	return D
 
 class ClusterEngine():
 	"""
