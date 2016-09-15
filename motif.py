@@ -4,14 +4,14 @@ motif analysis
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import OpticsClusterArea as OP
-from itertools import *
-import AutomaticClustering as AutoC
+# import OpticsClusterArea as OP
+# from itertools import *
+# import AutomaticClustering as AutoC
 import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
 import time
-import hdbscan
+# import hdbscan
 
 
 def save_to_file(output_file_name,data):
@@ -349,7 +349,7 @@ def vectorized_haversine2(X):
 	vectorized haversine function.
 
 	Args:
-		X is n-by-2 matrix, storing lat & lon each row
+		X is n-by-2 matrix, storing lat & lon each row, in np.array
 		X should be in the form of numpy.array
 	Return:
 		D is an n-by-n pairwise distance matrix
@@ -372,11 +372,6 @@ def vectorized_haversine2(X):
 			temp3 = 6371000 * 2 * asin(sqrt(temp1+temp2))
 			D[i,j] = temp3
 			D[j,i] = temp3
-
-	# a = v_sin(dlat/2)**2 + v_cos(lat1) * v_cos(lat2) * v_sin(dlon/2)**2
-	# a =       p1       +       p2    *     p3      *        p4
-	# c = 2 * v_asin(v_sqrt(a))
-	# m = 6371000 * c
 	return D
 
 class ClusterEngine():
@@ -384,7 +379,7 @@ class ClusterEngine():
 	This class is used to cluster locations into clusters for motif analysis
 	"""
 	def __init__(self, data = [], algo = 'dbscan', eps = 10, minpts = 10):
-		self.data = data
+		self.data = np.array(data)
 		self.algo = algo
 		self.eps = eps
 		self.minpts = minpts
@@ -404,12 +399,12 @@ class ClusterEngine():
 		start_time = time.time()
 		if self.algo == 'dbscan':
 			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
-		if self.algo == 'optics':
-			self.labels = self._optics_cluster()
-		if self.algo == 'hdbscan':
-			self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
-		if show_time:
-			print 'Clustering time: ' + str(time.time() - start_time) + ' seconds.'
+		# if self.algo == 'optics':
+		# 	self.labels = self._optics_cluster()
+		# if self.algo == 'hdbscan':
+		# 	self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
+		# if show_time:
+			print 'Clustering: ' + str(time.time() - start_time) + ' seconds.'
 
 
 	def _compute_dist_matrix(self, show_time = False):
@@ -417,13 +412,14 @@ class ClusterEngine():
 		calculate pairwise distance
 		"""
 		start_time = time.time()
-		n = len(self.data)
-		for i in range(n-1):
-			for j in range(i+1,n):
-				self.dist_matrix[i][j] = haversine(self.data[i][0],self.data[i][1],self.data[j][0],self.data[j][1])
-				self.dist_matrix[j][i] = self.dist_matrix[i][j]
+		# n = len(self.data)
+		# for i in range(n-1):
+		# 	for j in range(i+1,n):
+		# 		self.dist_matrix[i][j] = haversine(self.data[i][0],self.data[i][1],self.data[j][0],self.data[j][1])
+		# 		self.dist_matrix[j][i] = self.dist_matrix[i][j]
+		self.dist_matrix = vectorized_haversine2(self.data)
 		if show_time:
-			print 'Computing distance matrix time: ' + str(time.time() - start_time) + ' seconds.'
+			print 'Computing distance matrix: ' + str(time.time() - start_time) + ' seconds.'
 
 	def write_labels(self,outputfilename):
 		with open(outputfilename,'w') as f:
@@ -453,31 +449,55 @@ class ClusterEngine():
 					continue
 				else:
 					ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
-
-
 		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
 		    orientation='portrait', papertype=None, format=None,
 		    transparent=False, bbox_inches=None, pad_inches=0.1)
 		plt.show()
 
-	def _optics_cluster(self):
-	    x = np.array(self.data)
-	    RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
-	    RPlot = []
-	    RPoints = []
-	    num_points = np.size(x,0)
-	    for item in order:
-	        RPlot.append(RD[item])
-	        RPoints.append([x[item][0],x[item][1]])
+	def get_parameters(self):
+		return self.eps, self.minpts
 
-	    rootNode = AutoC.automaticCluster(RPlot, RPoints)
-	    leaves = AutoC.getLeaves(rootNode, [])
+	def get_eps(self):
+		return self.eps
 
-	    temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
-	    cluster_cnt = -1
-	    for leaf in leaves:
-	        cluster_cnt += 1
-	        for v in range(leaf.start, leaf.end):
-				cluster_idx = order[v]
-				temp_labels[cluster_idx] = cluster_cnt
-	    return temp_labels
+	def get_minpts(self):
+		return self.minpts
+
+	def show_parameters(self):
+		print 'eps = ' + str(self.eps) + ', minpts = ' + str(self.minpts)
+
+	def set_eps(self,new_eps):
+		self.eps = new_eps
+
+	def set_minpts(self, new_minpts):
+		self.minpts = new_minpts
+
+	def set_params(self, new_eps = -1, new_minpts = -1):
+		if new_eps != -1:
+			self.eps = new_eps
+		if new_minpts != -1:
+			self.minpts = new_minpts
+
+
+
+	# def _optics_cluster(self):
+	#     x = np.array(self.data)
+	#     RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
+	#     RPlot = []
+	#     RPoints = []
+	#     num_points = np.size(x,0)
+	#     for item in order:
+	#         RPlot.append(RD[item])
+	#         RPoints.append([x[item][0],x[item][1]])
+
+	#     rootNode = AutoC.automaticCluster(RPlot, RPoints)
+	#     leaves = AutoC.getLeaves(rootNode, [])
+
+	#     temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
+	#     cluster_cnt = -1
+	#     for leaf in leaves:
+	#         cluster_cnt += 1
+	#         for v in range(leaf.start, leaf.end):
+	# 			cluster_idx = order[v]
+	# 			temp_labels[cluster_idx] = cluster_cnt
+	#     return temp_labels
