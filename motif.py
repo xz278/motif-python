@@ -529,7 +529,7 @@ def csv_read(filename): # return a matrix of strings
 	return ret_matrix
 
 
-def load_location_data(filename,valid_user = []):
+def load_location_data(filename,columns = [], valid_user = []):
 	data = []
 	cnt = 0
 	users = {} # dictionary {user_id:User object, ...}
@@ -561,7 +561,12 @@ def write_user_data(filename,users):
 		for user in users.values():
 			for month_data in user.list_of_MonthlyData.values():
 				for daily_data in month_data.list_of_DailyData.values():
-					f.write(user.uid + ',' + daily_data)
+					l = len(daily_data.data)
+					timestr = dt.datetime.strftime(daily_data.data[0],'%Y-%m-%dT%H:%M:%S')
+					for i in range(l):
+						f.write(user.uid + ',' + timestr + ',' + \
+								daily_data.data[1] + ',' + daily_data.data[2] + ',' \
+								daily_data.data[-1] + '\n')
 
 class Motif:
 	"""
@@ -579,6 +584,7 @@ class User:
 		self.list_of_MonthlyData = {} # a dictionary later used to store MonthData object
 		self.uid = uid
 		self.motif = []
+		self.data_for_cluster = {}
 
 	def add(self,user_time,user_location,user_speed):
 		"""
@@ -592,35 +598,93 @@ class User:
 			self.list_of_MonthlyData[user_month] = MonthlyData(month_value = user_month)
 		self.list_of_MonthlyData[user_month].add(user_time,user_location,user_speed)
 
-	class MonthlyData:
-		def __init__(self,month_value = 0):
-			self.month_value = month_value
-			self.list_of_DailyData = {}
 
-		def add(self,user_time,user_location,user_speed):
-			user_date = str(user_time.date())
-			if user_date not in self.list_of_DailyData:
-				self.list_of_DailyData[user_date] = DailyData(user_time.date())
-			self.list_of_DailyData[user_date].add(user_time,user_location,user_speed)
 
-	class DailyData:
-		def __init__(self,data_date):
-			"""
-			Args:
-				list_of_date: list of datetime.date()
-				location_data: two-element list storing lat. and lon.
-			"""
-			self.data_date = data_date
-			# self.numpy_data = [] # will be generated as a numpy.array in float after all data have been added
-			# self.data_location = []
-			# self.data_time = []
-			# self.data_speed = []
-			self.data = []
 
-		def add(self,user_time,user_location,user_speed):
-			# self.data_time.append(user_time)
-			# self.data_location.append(user_location)
-			# self.data_speed.append(user_speed)
-			self.data.append([user_time,user_location[0],user_location[1],user_speed])
+	def prepare(self,speed_thr = 100000,duration_thr = 0,day_thr = 10, seasonal = True):
+		for month_data in self.list_of_MonthlyData.values():
+			month_data.prepare(speed_thr,duration_thr)
+		M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
+		self.data_for_cluster = {}
+		for season in M:
+			months_in_curr_season = M[season]
+			temp = np.array(shape = [0,2], dtype = 'float')
+			for month in months_in_curr_season:
+				if month in self.list_of_MonthlyData:
+					if len(self.list_of_MonthlyData[month].list_of_DailyData) > day_thr
+					temp = self.list_of_MonthlyData[month].add_data_to(temp)
+			if len(temp) > 0:
+				self.data_for_cluster[season] = temp
 
-		# def run filer  speed threshold start/end at the same dai ...
+
+
+
+class MonthlyData:
+	def __init__(self,month_value = 0):
+		self.month_value = month_value
+		self.list_of_DailyData = {}
+
+	def add(self,user_time,user_location,user_speed):
+		user_date = str(user_time.date())
+		if user_date not in self.list_of_DailyData:
+			self.list_of_DailyData[user_date] = DailyData(user_time.date())
+		self.list_of_DailyData[user_date].add(user_time,user_location,user_speed)
+
+	def prepare(self, speed_thr,duration_thr):
+		for daily_data in self.list_of_DailyData.values():
+			daily_data.prepare(speed_thr,duration_thr)
+
+	def add_data_to(self,data_in):
+		for day in self.list_of_DailyData.values():
+			if day.is_valid:
+				np.append(data_in,day.valid_data,axis = 0)
+		return data_in
+
+
+
+class DailyData:
+	def __init__(self,data_date):
+		"""
+		Args:
+			list_of_date: list of datetime.date()
+			location_data: two-element list storing lat. and lon.
+		"""
+		self.data_date = data_date
+		self.is_sorted = False
+		# self.numpy_data = [] # will be generated as a numpy.array in float after all data have been added
+		# self.data_location = []
+		# self.data_time = []
+		# self.data_speed = []
+		self.data = []
+		self.valid_data = []
+		self.is_valid = False
+
+	def add(self,user_time,user_location,user_speed):
+		# self.data_time.append(user_time)
+		# self.data_location.append(user_location)
+		# self.data_speed.append(user_speed)
+		self.data.append([user_time,user_location[0],user_location[1],user_speed])
+		self.is_sorted = False
+
+	# def run filer  speed threshold start/end at the same dai ...
+	def prepare(self,speed_thr = 100000,duration_thr = 0):
+		"""
+		args:
+			speed_thr: speed threshold in meter
+			duration_thr: duration threshold in hours
+		"""
+		if not self.is_sorted:
+			self.data.sort(key = lambda x: x[0])
+			self.is_sorted = True
+		self.valid_data = np.zeros(shape = [0,2], dtype = 'float')
+		self.is_valid = False
+		l = len(self.data)
+		num_points_thr = 4 * duration_thr
+		if l >= num_points_thr:
+			for i in range(l):
+				if self.data[-1] <= speed_thr:
+					self.valid_data = np.append(self.valid_data, \
+												[[self.data[1],self.data[2]]], \
+												axis = 0)
+			if len(x) > 0:
+				self.is_valid = True
