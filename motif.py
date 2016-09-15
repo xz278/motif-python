@@ -501,3 +501,44 @@ class ClusterEngine():
 	# 			cluster_idx = order[v]
 	# 			temp_labels[cluster_idx] = cluster_cnt
 	#     return temp_labels
+
+
+# location_data format:
+# uid,time,latitude,longitude,altitude,bearing,speed,travelstate,provider,network_type,accuracy
+#  0 , 1  ,   2    ,    3    ,   4    ,   5   ,  6  ,     7     ,   8    ,     9      ,   10
+
+def load_data(filename,columns = [1,2,3,4,7],valid_user = []):
+	data = []
+	cnt = 0
+	users = []
+	temp_user_ids = []
+	if len(valid_user) == 0:
+		has_valid_user = False
+	else:
+		has_valid_user = True
+	with open(filename,'r') as of:
+		lines = f.readlines()
+		for line in lines:
+			cells = lines.split()[0].split(',')
+			user_id = cells[0]
+			if has_valid_user user_id not in valid_user:
+				continue
+			if user_id in users
+
+class Motif:
+	"""
+	A motif object includes a network/graph, location(if interchangable), frequency
+	"""
+	def __init__(self, ntw, locs, freq):
+		self.ntw = ntw
+		self.locs = locs
+		self.freq = freq
+
+class User:
+	"""
+	A User object stores the location data for one user id.
+	"""
+	def __init__(self, uid, location_data):
+		self.location_data = location_data
+		self.uid = uid
+		self.motif = []
