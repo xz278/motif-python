@@ -11,6 +11,7 @@ import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
 import time
+import datetime as dt
 # import hdbscan
 
 
@@ -506,12 +507,32 @@ class ClusterEngine():
 # location_data format:
 # uid,time,latitude,longitude,altitude,bearing,speed,travelstate,provider,network_type,accuracy
 #  0 , 1  ,   2    ,    3    ,   4    ,   5   ,  6  ,     7     ,   8    ,     9      ,   10
+# time format: 2014-02-14T23:13:48.000Z
+def csv_read(filename): # return a matrix of strings
+	if filename.split('.')[-1] != 'csv':
+		filename = filename + '.csv'
+	max_columns = 0
+	with open(filename,'r') as f:
+		lines = f.readlines()
+		ret_matrix = []
+		for line in lines:
+			cells = line[:-2].split(',')
+			ret_matrix.append(cells)
+			l = len(cells)
+			if l > max_columns:
+				max_columns = l
+	if max_columns = 1:
+		ret2 = []
+		for i in range(len(ret_matrix)):
+			ret2.append(ret_matrix[i])
+		ret_matrix = ret2
+	return ret_matrix
 
-def load_data(filename,columns = [1,2,3,4,7],valid_user = []):
+
+def load_location_data(filename,valid_user = []):
 	data = []
 	cnt = 0
-	users = []
-	temp_user_ids = []
+	users = {} # dictionary {user_id:User object, ...}
 	if len(valid_user) == 0:
 		has_valid_user = False
 	else:
@@ -519,26 +540,87 @@ def load_data(filename,columns = [1,2,3,4,7],valid_user = []):
 	with open(filename,'r') as of:
 		lines = f.readlines()
 		for line in lines:
-			cells = lines.split()[0].split(',')
-			user_id = cells[0]
-			if has_valid_user user_id not in valid_user:
+			cells = lines[:-2].split(',')
+			if len(cells) == 1:
 				continue
-			if user_id in users
+			user_id = cells[0]
+			if has_valid_user and user_id not in valid_user:
+				continue
+
+			user_time = dt.datetime.strptime(cells[1][:-5],'%Y-%m-%dT%H:%M:%S')
+			user_location = [float[cells[2]],float[cells[3]]]
+			user_speed = float[cells[6]]
+			if user_id not in users:
+				users[user_id] = User(user_id)
+			users[user_id].add(user_time,user_location,user_speed)
+
+def write_user_data(filename,users):
+	if filename.split('.')[-1] != 'csv':
+		filename = filename + '.csv'
+	with open(filename,'w') as f:
+		for user in users.values():
+			for month_data in user.list_of_MonthlyData.values():
+				for daily_data in month_data.list_of_DailyData.values():
+					f.write(user.uid + ',' + daily_data)
 
 class Motif:
 	"""
 	A motif object includes a network/graph, location(if interchangable), frequency
 	"""
-	def __init__(self, ntw, locs, freq):
-		self.ntw = ntw
-		self.locs = locs
+	def __init__(self, graph, freq = 0):
+		self.graph = graph # a Graph object
 		self.freq = freq
 
 class User:
 	"""
 	A User object stores the location data for one user id.
 	"""
-	def __init__(self, uid, location_data):
-		self.location_data = location_data
+	def __init__(self, uid):
+		self.list_of_MonthlyData = {} # a dictionary later used to store MonthData object
 		self.uid = uid
 		self.motif = []
+
+	def add(self,user_time,user_location,user_speed):
+		"""
+		args:
+			user_time: datetime.datetime()
+			user_location: list[lat,lon]
+			user_speed: float in meters
+		"""
+		user_month = user_time.month
+		if user_month not in self.list_of_MonthlyData:
+			self.list_of_MonthlyData[user_month] = MonthlyData(month_value = user_month)
+		self.list_of_MonthlyData[user_month].add(user_time,user_location,user_speed)
+
+	class MonthlyData:
+		def __init__(self,month_value = 0):
+			self.month_value = month_value
+			self.list_of_DailyData = {}
+
+		def add(self,user_time,user_location,user_speed):
+			user_date = str(user_time.date())
+			if user_date not in self.list_of_DailyData:
+				self.list_of_DailyData[user_date] = DailyData(user_time.date())
+			self.list_of_DailyData[user_date].add(user_time,user_location,user_speed)
+
+	class DailyData:
+		def __init__(self,data_date):
+			"""
+			Args:
+				list_of_date: list of datetime.date()
+				location_data: two-element list storing lat. and lon.
+			"""
+			self.data_date = data_date
+			# self.numpy_data = [] # will be generated as a numpy.array in float after all data have been added
+			# self.data_location = []
+			# self.data_time = []
+			# self.data_speed = []
+			self.data = []
+
+		def add(self,user_time,user_location,user_speed):
+			# self.data_time.append(user_time)
+			# self.data_location.append(user_location)
+			# self.data_speed.append(user_speed)
+			self.data.append([user_time,user_location[0],user_location[1],user_speed])
+
+		# def run filer  speed threshold start/end at the same dai ...
