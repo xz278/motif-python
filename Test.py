@@ -178,3 +178,11 @@ def haversine(lat1, lon1, lat2, lon2):
 	c = 2 * asin(sqrt(a)) 
 	m = 6371000 * c
 	return m
+
+
+
+from motif import *
+valid_user = csv_read('validUser.csv')
+users = load_location_data(filename = 'location_data.csv',valid_user = valid_user)
+u = users.values()[17]
+u.prepare()

@@ -519,14 +519,16 @@ def csv_read(filename): # return a matrix of strings
 			cells = line[:-2].split(',')
 			ret_matrix.append(cells)
 			l = len(cells)
+			# print l
 			if l > max_columns:
 				max_columns = l
-	if max_columns = 1:
+	if max_columns == 1:
 		ret2 = []
 		for i in range(len(ret_matrix)):
-			ret2.append(ret_matrix[i])
+			ret2.append(ret_matrix[i][0])
 		ret_matrix = ret2
 	return ret_matrix
+
 
 
 def load_location_data(filename,columns = [], valid_user = []):
@@ -537,36 +539,45 @@ def load_location_data(filename,columns = [], valid_user = []):
 		has_valid_user = False
 	else:
 		has_valid_user = True
-	with open(filename,'r') as of:
+	with open(filename,'r') as f:
 		lines = f.readlines()
-		for line in lines:
-			cells = lines[:-2].split(',')
+		l_lines = len(lines)
+		for i in range(1,l_lines):
+			line = lines[i]
+			cells = line[:-2].split(',')
+			# print cells
 			if len(cells) == 1:
 				continue
 			user_id = cells[0]
-			if has_valid_user and user_id not in valid_user:
+			# print user_id
+			# print user_id in valid_user
+			if has_valid_user and (user_id[:-1] not in valid_user):
 				continue
 
 			user_time = dt.datetime.strptime(cells[1][:-5],'%Y-%m-%dT%H:%M:%S')
-			user_location = [float[cells[2]],float[cells[3]]]
-			user_speed = float[cells[6]]
+			# print user_time
+			# print cells[2], cells[3]
+			user_location = [float(cells[2]),float(cells[3])]
+			user_speed = float(cells[6])
+			if user_speed > 1: # speed threshold
+				continue
 			if user_id not in users:
 				users[user_id] = User(user_id)
 			users[user_id].add(user_time,user_location,user_speed)
+	return users
 
 def write_user_data(filename,users):
 	if filename.split('.')[-1] != 'csv':
 		filename = filename + '.csv'
 	with open(filename,'w') as f:
+		f.write('uid,time,lat,lon,speed\n')
 		for user in users.values():
 			for month_data in user.list_of_MonthlyData.values():
 				for daily_data in month_data.list_of_DailyData.values():
 					l = len(daily_data.data)
 					timestr = dt.datetime.strftime(daily_data.data[0],'%Y-%m-%dT%H:%M:%S')
 					for i in range(l):
-						f.write(user.uid + ',' + timestr + ',' + \
-								daily_data.data[1] + ',' + daily_data.data[2] + ',' \
-								daily_data.data[-1] + '\n')
+						f.write(user.uid + ',' + timestr + ',' + daily_data.data[1] + ',' + daily_data.data[2] + ',' + daily_data.data[-1] + '\n')
 
 class Motif:
 	"""
@@ -579,12 +590,14 @@ class Motif:
 class User:
 	"""
 	A User object stores the location data for one user id.
+	Could use a tree structure: maybe implement this later
 	"""
 	def __init__(self, uid):
 		self.list_of_MonthlyData = {} # a dictionary later used to store MonthData object
 		self.uid = uid
 		self.motif = []
 		self.data_for_cluster = {}
+		self.num_entry = 0
 
 	def add(self,user_time,user_location,user_speed):
 		"""
@@ -599,48 +612,112 @@ class User:
 		self.list_of_MonthlyData[user_month].add(user_time,user_location,user_speed)
 
 
-
-
-	def prepare(self,speed_thr = 100000,duration_thr = 0,day_thr = 10, seasonal = True):
-		for month_data in self.list_of_MonthlyData.values():
-			month_data.prepare(speed_thr,duration_thr)
+	def prepare(self):
 		M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
 		self.data_for_cluster = {}
+		self.data_for_cluster_idx = {}
+		self.day_list = {}
 		for season in M:
 			months_in_curr_season = M[season]
-			temp = np.array(shape = [0,2], dtype = 'float')
+			temp_loc = np.zeros(shape = [0,2], dtype = 'float')
+			cluster_start_idx = [] # inclusive
+			cluster_end_idx = [] # exclusive
+			cluster_day_list = []
+			p = 0
 			for month in months_in_curr_season:
 				if month in self.list_of_MonthlyData:
-					if len(self.list_of_MonthlyData[month].list_of_DailyData) > day_thr
-					temp = self.list_of_MonthlyData[month].add_data_to(temp)
-			if len(temp) > 0:
-				self.data_for_cluster[season] = temp
+					month_data = self.list_of_MonthlyData[month]
+					add_loc = month_data.get_location()
+					if month_data.num_days>0:
+						temp_loc = np.append(temp_loc,add_loc,axis = 0)
+						cluster_day_list += month_data.list_of_DailyData.values()
+						cluster_start_idx.append(p)
+						p += month_data.num_days
+						cluster_end_idx.append(p)
+			if (len(cluster_day_list) >= 10) and (len(temp_loc) > 0):
+				self.data_for_cluster[season] = temp_loc
+				self.data_for_cluster_idx[season] = [cluster_start_idx,cluster_end_idx]
+				self.day_list[season] = cluster_day_list
+		if len(self.data_for_cluster) > 0:
+			data_size = 0
+			for item in self.data_for_cluster.values():
+				data_size += len(item)
+			self.total_size = data_size
+		else:
+			self.total_size = 0
 
+	def _load_cluster_engnie(self):
+		self.ces = []
+		n = len(self.data_for_cluster)
+		for i in range(n):
+			location_data = self.data_for_cluster.values()[i]
+			ce = ClusterEngine(location_dataca)
 
+	def total_size(self):
+		return self.total_size
+
+	def run_cluster(self):
+		n = len(self.data_for_cluster)
+		for i in range(n):
+			ce = self.ces[i]
+			ce.run(show_time = True)
+			curr_day_list = self.day_list.values()[i] # day_list for current season
+			curr_idx = self.data_for_cluster_idx.values[i]
+			l = len(curr_day_list)
+			for j in range(l):
+				curr_daily_data = curr_day_list[j]
+				c = 0
+				for p in range(curr_idx[j][0],curr_idx[j][1]):
+					curr_daily_data.location_ids[c] = ce.labels[p]
+					c += 1
+
+	@staticmethod
+	def prepare_all(users):
+		for u in users.values():
+			u.prepare()
+	@staticmethod
+	def sort_all(users):
+		user_id = users.keys()
+		user_obj = user.values()
+		user_size = []
+		n = len(user_id)
+		for u in user_obj:
+			user_size.append(u.total_size)
+		sorted_idx = sorted(range(len(user)),key = lambda x:user_size[x],reverse = True)
+		new_user_id = [''] * n
+		for i in n:
+			new_user_id[i] = user_id[sorted_idx[i]]
+		user_size.sort(reverse = True)
+		return new_user_id, user_size
 
 
 class MonthlyData:
 	def __init__(self,month_value = 0):
 		self.month_value = month_value
 		self.list_of_DailyData = {}
+		self.num_days = 0
 
 	def add(self,user_time,user_location,user_speed):
 		user_date = str(user_time.date())
 		if user_date not in self.list_of_DailyData:
 			self.list_of_DailyData[user_date] = DailyData(user_time.date())
+			self.num_days += 1
 		self.list_of_DailyData[user_date].add(user_time,user_location,user_speed)
 
-	def prepare(self, speed_thr,duration_thr):
-		for daily_data in self.list_of_DailyData.values():
-			daily_data.prepare(speed_thr,duration_thr)
-
-	def add_data_to(self,data_in):
-		for day in self.list_of_DailyData.values():
-			if day.is_valid:
-				np.append(data_in,day.valid_data,axis = 0)
-		return data_in
-
-
+	def get_location(self):
+		location = np.zeros(shape = [0,2], dtype = 'float')
+		removed = []
+		for daystr in self.list_of_DailyData:
+			curr_daily_data = self.list_of_DailyData[daystr]
+			curr_daily_data.prepare()
+			if curr_daily_data.is_valid:
+				location = np.append(location,curr_daily_data.get_location(), axis = 0)
+			else:
+				removed.append(daystr)
+		for item in removed:
+			del(self.list_of_DailyData[item])
+			self.num_days -= 1
+		return location
 
 class DailyData:
 	def __init__(self,data_date):
@@ -651,40 +728,34 @@ class DailyData:
 		"""
 		self.data_date = data_date
 		self.is_sorted = False
-		# self.numpy_data = [] # will be generated as a numpy.array in float after all data have been added
-		# self.data_location = []
-		# self.data_time = []
-		# self.data_speed = []
 		self.data = []
 		self.valid_data = []
 		self.is_valid = False
+		self.num_entry = 0
 
 	def add(self,user_time,user_location,user_speed):
-		# self.data_time.append(user_time)
-		# self.data_location.append(user_location)
-		# self.data_speed.append(user_speed)
 		self.data.append([user_time,user_location[0],user_location[1],user_speed])
+		# index:              0    ,   lat:    1    ,    lon:   2    ,     3
 		self.is_sorted = False
+		self.num_entry += 1
 
 	# def run filer  speed threshold start/end at the same dai ...
-	def prepare(self,speed_thr = 100000,duration_thr = 0):
-		"""
-		args:
-			speed_thr: speed threshold in meter
-			duration_thr: duration threshold in hours
-		"""
+	def prepare(self):
 		if not self.is_sorted:
 			self.data.sort(key = lambda x: x[0])
 			self.is_sorted = True
-		self.valid_data = np.zeros(shape = [0,2], dtype = 'float')
-		self.is_valid = False
 		l = len(self.data)
-		num_points_thr = 4 * duration_thr
+		self.location_ids = [-1] * l
+		self.graphs = []
+		num_points_thr = 4 * 16 # duartion threshold is 16 hours minimum
 		if l >= num_points_thr:
-			for i in range(l):
-				if self.data[-1] <= speed_thr:
-					self.valid_data = np.append(self.valid_data, \
-												[[self.data[1],self.data[2]]], \
-												axis = 0)
-			if len(x) > 0:
-				self.is_valid = True
+			self.is_valid = True
+		else:
+			self.is_valid = False
+
+	def get_location(self):
+		location = np.zeros(shape = [self.num_entry,2], dtype = 'float')
+		for i in range(self.num_entry):
+			location[i,0] = self.data[i][1]
+			location[i,1] = self.data[i][2]
+		return location
