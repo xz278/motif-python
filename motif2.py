@@ -403,7 +403,7 @@ class ClusterEngine():
 		# 	self.labels = self._optics_cluster()
 		# if self.algo == 'hdbscan':
 		# 	self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
-		# if show_time:
+		if show_time:
 			print 'Clustering: ' + str(time.time() - start_time) + ' seconds.'
 
 
@@ -437,19 +437,32 @@ class ClusterEngine():
 		ax = fig.add_subplot(111)
 
 		ax.plot(X[:,0], X[:,1], 'y.')
-		colors = cycle('gmkrcbgrcmk')
 		unique_cluster = np.unique(self.labels)
 		unique_cluster = unique_cluster[1:]
-		clrs = zip(unique_cluster,colors)
+
+
+		## first way to get colosr:
+		# colors = cycle('gmkrcbgrcmk')
+		# clrs = zip(unique_cluster,colors)
+		## alternate way:
+		# clrs = []
+		# for i in range(len(unique_cluster)):
+		# 	temp_clr = np.random.rand(3,1)
+		# 	while temp_clr in clrs: 
+		# 		temp_clr = np.random.rand(3,1)
+		# 	clrs.append(temp_clr)
+		clrs = np.random.rand(len(unique_cluster),3)
 		# for i in range(n):
 		#     ax.plot(X[i,0],X[i,1], clrs[self.labels[i]][1]+'o', ms=5)
+		
 		if len(unique_cluster) != 0:
 			for i in range(n):
 				c = self.labels[i]
 				if c == -1:
 					continue
 				else:
-					ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+					# ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+					ax.plot(X[i,0], X[i,1],color = clrs[c,:], marker = 'o', ms=5)
 		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
 		    orientation='portrait', papertype=None, format=None,
 		    transparent=False, bbox_inches=None, pad_inches=0.1)

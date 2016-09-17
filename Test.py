@@ -181,8 +181,34 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 
-from motif import *
+from motif2 import *
 valid_user = csv_read('validUser.csv')
 users = load_location_data(filename = 'location_data.csv',valid_user = valid_user)
-u = users.values()[17]
+
+u = users.values()[20]
 u.prepare()
+u.run_cluster()
+u._data.values()[0]._ce.plot_cluster()
+
+User.prepare_all(users)
+sortedid, sortedsize = User.sort_all(users)
+
+n_lines = len(output_matrix)
+with open('eg.csv','w') as f:
+	for i in range(n_lines):
+		w = len(output_matrix[i])
+		temp_line = output_matrix[i][0]
+		for j in range(1,w):
+			temp_line += ',' + str(output_matrix[i][j])
+		temp_line += '\n'
+		f.write(temp_line)
+
+from motif2 import *
+x = read_from_file('eg.csv')
+y = read_from_file('egl.csv')
+ce = ClusterEngine(data = x)
+# ce.run(show_time = True)
+ce.labels = y
+ce.plot_cluster()
+
+save_to_file('eglabel.csv')
