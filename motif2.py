@@ -4,9 +4,9 @@ motif analysis
 """
 import numpy as np
 import matplotlib.pyplot as plt
-# import OpticsClusterArea as OP
-# from itertools import *
-# import AutomaticClustering as AutoC
+import OpticsClusterArea as OP
+from itertools import *
+import AutomaticClustering as AutoC
 import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
@@ -20,7 +20,7 @@ def save_to_file(output_file_name,data):
 		pickle.dump(data,f)
 
 def read_from_file(input_file_name):
-	with open('input_file_name','rb') as f:
+	with open(input_file_name,'rb') as f:
 		ret = pickle.load(f)
 	return ret
 
@@ -385,8 +385,7 @@ class ClusterEngine():
 		self.eps = eps
 		self.minpts = minpts
 		n = len(data)
-		self.labels = [-1] * n
-		self.dist_matrix = [[0] * n for _ in range(n)]
+		# self.labels = [-1] * n
 
 
 	def run(self,show_time = False):
@@ -418,6 +417,7 @@ class ClusterEngine():
 		# 	for j in range(i+1,n):
 		# 		self.dist_matrix[i][j] = haversine(self.data[i][0],self.data[i][1],self.data[j][0],self.data[j][1])
 		# 		self.dist_matrix[j][i] = self.dist_matrix[i][j]
+		# self.dist_matrix = [[0] * n for _ in range(n)]
 		self.dist_matrix = vectorized_haversine2(self.data)
 		if show_time:
 			print 'Computing distance matrix: ' + str(time.time() - start_time) + ' seconds.'
@@ -479,8 +479,11 @@ class ClusterEngine():
 		if new_minpts != -1:
 			self.minpts = new_minpts
 
-	
-
+	def load_data(self, new_data):
+		self.data = new_data
+		n = len(self.data)
+		self.labels = [-1] * n
+		# self.dist_matrix = [[0] * n for _ in range(n)]
 
 	# def _optics_cluster(self):
 	#     x = np.array(self.data)
@@ -530,6 +533,18 @@ def csv_read(filename): # return a matrix of strings
 		ret_matrix = ret2
 	return ret_matrix
 
+def csv_write(filename,output_matrix):
+	if filename.split('.')[-1] != 'csv':
+		filename = filename + '.csv'
+	n_lines = len(output_matrix)
+	with open(filename,'w') as f:
+		for i in range(n_lines):
+			w = len(output_matrix[i])
+			temp_line = output_matrix[i][0]
+			for j in range(1,w):
+				temp_line += ',' + str(output_matrix[i][j])
+			temp_line += '\n'
+			f.write(temp_line)
 
 
 def load_location_data(filename,columns = [], valid_user = []):
@@ -546,25 +561,19 @@ def load_location_data(filename,columns = [], valid_user = []):
 		for i in range(1,l_lines):
 			line = lines[i]
 			cells = line[:-2].split(',')
-			# print cells
 			if len(cells) == 1:
 				continue
 			user_id = cells[0]
-			# print user_id
-			# print user_id in valid_user
 			if has_valid_user and (user_id[:-1] not in valid_user):
 				continue
-
 			user_time = dt.datetime.strptime(cells[1][:-5],'%Y-%m-%dT%H:%M:%S')
-			# print user_time
-			# print cells[2], cells[3]
 			user_location = [float(cells[2]),float(cells[3])]
 			user_speed = float(cells[6])
 			if user_speed > 1: # speed threshold
 				continue
 			if user_id not in users:
 				users[user_id] = User(user_id)
-			users[user_id].add(user_time,user_location,user_speed)
+			users[user_id].add(user_time,user_location)
 	return users
 
 def write_user_data(filename,users):
@@ -588,89 +597,31 @@ class Motif:
 		self.graph = graph # a Graph object
 		self.freq = freq
 
+
 class User:
-	"""
-	A User object stores the location data for one user id.
-	Could use a tree structure: maybe implement this later
-	"""
-	def __init__(self, uid):
-		self.list_of_MonthlyData = {} # a dictionary later used to store MonthData object
-		self.uid = uid
-		self.motif = []
-		self.data_for_cluster = {}
-		self.num_entry = 0
-
-	def add(self,user_time,user_location,user_speed):
-		"""
-		args:
-			user_time: datetime.datetime()
-			user_location: list[lat,lon]
-			user_speed: float in meters
-		"""
-		user_month = user_time.month
-		if user_month not in self.list_of_MonthlyData:
-			self.list_of_MonthlyData[user_month] = MonthlyData(month_value = user_month)
-		self.list_of_MonthlyData[user_month].add(user_time,user_location,user_speed)
-
+	S2M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
+	M2S = {3:'spring',4:'spring',5:'spring', 6:'summer',7:'summer',8:'summer', 9:'fall',10:'fall',11:'fall', 12:'winter',1:'winter',2:'winter'}
+	def __init__(self,uid):
+		self._uid = uid
+		self._data = {}
+	def add(self,user_time,user_location):
+		cseason = User.M2S[user_time.month]
+		if cseason not in self._data:
+			self._data[cseason] = DataEngine(cseason)
+		self._data[cseason].add(user_time,user_location)
 
 	def prepare(self):
-		M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
-		self.data_for_cluster = {}
-		self.data_for_cluster_idx = {}
-		self.day_list = {}
-		for season in M:
-			months_in_curr_season = M[season]
-			temp_loc = np.zeros(shape = [0,2], dtype = 'float')
-			cluster_start_idx = [] # inclusive
-			cluster_end_idx = [] # exclusive
-			cluster_day_list = []
-			p = 0
-			for month in months_in_curr_season:
-				if month in self.list_of_MonthlyData:
-					month_data = self.list_of_MonthlyData[month]
-					add_loc = month_data.get_location()
-					if month_data.num_days>0:
-						temp_loc = np.append(temp_loc,add_loc,axis = 0)
-						cluster_day_list += month_data.list_of_DailyData.values()
-						cluster_start_idx.append(p)
-						p += month_data.num_days
-						cluster_end_idx.append(p)
-			if (len(cluster_day_list) >= 10) and (len(temp_loc) > 0):
-				self.data_for_cluster[season] = temp_loc
-				self.data_for_cluster_idx[season] = [cluster_start_idx,cluster_end_idx]
-				self.day_list[season] = cluster_day_list
-		if len(self.data_for_cluster) > 0:
-			data_size = 0
-			for item in self.data_for_cluster.values():
-				data_size += len(item)
-			self.total_size = data_size
-		else:
-			self.total_size = 0
-
-	def _load_cluster_engnie(self):
-		self.ces = []
-		n = len(self.data_for_cluster)
-		for i in range(n):
-			location_data = self.data_for_cluster.values()[i]
-			ce = ClusterEngine(location_data)
-
-	# def total_size(self):
-	# 	return self.total_size
-
+		for data_engine in self._data.values():
+			data_engine.prepare()
 	def run_cluster(self):
-		n = len(self.data_for_cluster)
-		for i in range(n):
-			ce = self.ces[i]
-			ce.run(show_time = True)
-			curr_day_list = self.day_list.values()[i] # day_list for current season
-			curr_idx = self.data_for_cluster_idx.values[i]
-			l = len(curr_day_list)
-			for j in range(l):
-				curr_daily_data = curr_day_list[j]
-				c = 0
-				for p in range(curr_idx[j][0],curr_idx[j][1]):
-					curr_daily_data.location_ids[c] = ce.labels[p]
-					c += 1
+		for data_engine in self._data.values():
+			data_engine.run_cluster()
+
+	def get_size(self):
+		total_size = 0
+		for data_engine in self._data.values():
+			total_size += data_engine.get_size()
+		return total_size
 
 	@staticmethod
 	def prepare_all(users):
@@ -683,7 +634,7 @@ class User:
 		user_size = []
 		n = len(user_id)
 		for u in user_obj:
-			user_size.append(u.total_size)
+			user_size.append(u.get_size())
 		sorted_idx = sorted(range(len(users)),key = lambda x:user_size[x],reverse = True)
 		new_user_id = [''] * n
 		for i in range(n):
@@ -691,74 +642,92 @@ class User:
 		user_size.sort(reverse = True)
 		return new_user_id, user_size
 
+class DataEngine:
+	def __init__(self,season):
+		self._season = season
+		self._data = {}
+		self._ce = ClusterEngine()
 
-class MonthlyData:
-	def __init__(self,month_value = 0):
-		self.month_value = month_value
-		self.list_of_DailyData = {}
-		self.num_days = 0
+	def add(self,user_time,user_location):
+		date_str = str(user_time.date())
+		if date_str not in self._data:
+			self._data[date_str] = DailyData(user_time.date())
+		self._data[date_str].add(user_time,user_location)
 
-	def add(self,user_time,user_location,user_speed):
-		user_date = str(user_time.date())
-		if user_date not in self.list_of_DailyData:
-			self.list_of_DailyData[user_date] = DailyData(user_time.date())
-			self.num_days += 1
-		self.list_of_DailyData[user_date].add(user_time,user_location,user_speed)
+	def prepare(self):
+		cluster_data = np.zeros(shape = [0,2], dtype = 'float')
+		p = 0
+		for daily_data in self._data.values():
+			daily_data.prepare()
+			if daily_data.is_valid():
+				cluster_data = np.append(cluster_data,daily_data.get_cluster_data(),axis = 0)
+				daily_data.set_start(p)
+				p += daily_data.get_size()
+				daily_data.set_end(p)
+		self._ce.load_data(cluster_data)
 
-	def get_location(self):
-		location = np.zeros(shape = [0,2], dtype = 'float')
-		removed = []
-		for daystr in self.list_of_DailyData:
-			curr_daily_data = self.list_of_DailyData[daystr]
-			curr_daily_data.prepare()
-			if curr_daily_data.is_valid:
-				location = np.append(location,curr_daily_data.get_location(), axis = 0)
-			else:
-				removed.append(daystr)
-		for item in removed:
-			del(self.list_of_DailyData[item])
-			self.num_days -= 1
-		return location
+	def run_cluster(self):
+		self._ce.run(show_time = True)
+		for daily_data in self._data.values():
+			if daily_data.is_valid():
+				daily_data.set_cluster(self._ce.labels[daily_data.get_start():daily_data.get_end()])
+	def get_size(self):
+		return len(self._ce.data)
 
 class DailyData:
-	def __init__(self,data_date):
-		"""
-		Args:
-			list_of_date: list of datetime.date()
-			location_data: two-element list storing lat. and lon.
-		"""
-		self.data_date = data_date
-		self.is_sorted = False
-		self.data = []
-		self.valid_data = []
-		self.is_valid = False
-		self.num_entry = 0
+	def __init__(self,new_date):
+		self._date = new_date
+		self._is_valid = False
+		self._data = [] # [datetime, lat, lon]
+		self._cluster = []
+		self._is_sorted = False
+		self._start = -1
+		self._end = -1
+		self._graphs = []
 
-	def add(self,user_time,user_location,user_speed):
-		self.data.append([user_time,user_location[0],user_location[1],user_speed])
-		# index:              0    ,   lat:    1    ,    lon:   2    ,     3
-		self.is_sorted = False
-		self.num_entry += 1
+	def get_size(self):
+		return len(self._data)
 
-	# def run filer  speed threshold start/end at the same dai ...
+	def add(self,user_time,user_location):
+		self._data.append([user_time,user_location[0],user_location[1]])
+		self._is_sorted = False
+
 	def prepare(self):
-		if not self.is_sorted:
-			self.data.sort(key = lambda x: x[0])
-			self.is_sorted = True
-		l = len(self.data)
-		self.location_ids = [-1] * l
-		self.graphs = []
+		if not self._is_sorted:
+			self._data.sort(key = lambda x: x[0])
+			self._is_sorted = True
+		l = len(self._data)
+		self._cluster = [-1] * l
 		num_points_thr = 4 * 16 # duartion threshold is 16 hours minimum
 		if l >= num_points_thr:
-			self.is_valid = True
+			self._is_valid = True
 		else:
-			self.is_valid = False
+			self._is_valid = False
 
-	def get_location(self):
-		location = np.zeros(shape = [self.num_entry,2], dtype = 'float')
-		for i in range(self.num_entry):
-			location[i,0] = self.data[i][1]
-			location[i,1] = self.data[i][2]
-		return location
+	def is_valid(self):
+		return self._is_valid
 
+	def get_daily_networks(self):
+		return self._graphs
 
+	def get_cluster_data(self):
+		temp_data = []
+		for i in range(len(self._data)):
+			loc = [self._data[i][1],self._data[i][2]]
+			temp_data.append(loc)
+		return np.array(temp_data,dtype = 'float')
+
+	def get_start(self):
+		return self._start
+
+	def get_end(self):
+		return self._end
+
+	def set_start(self,start):
+		self._start = start
+
+	def set_end(self,end):
+		self._end = end
+
+	def set_cluster(self,cluster):
+		self._cluster = cluster
