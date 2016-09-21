@@ -12,6 +12,9 @@ from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
 import time
 import datetime as dt
+# import matplotlib.pyplot as plt
+from operator import itemgetter
+import sys
 # import hdbscan
 
 
@@ -63,14 +66,22 @@ class Graph:
 
 	"""
 	def __init__(self, am = [],locs = []):
+		# print(am)
+		# print(locs)
 		self.am = am
 		self.locs = locs
 		if len(locs)==0:
 			self.isInterch = False
+			self._is_interch = False
 		else:
 			self.isInterch = True
+			self._is_interch = True
 
 		nv = len(am) # number of vertices
+		if nv == 1:
+			self.alt = []
+			self.alt_loc = []
+			return
 		self.outdeg = [0] * nv
 		self.indeg = [0] * nv
 		for i in range(nv):
@@ -92,6 +103,7 @@ class Graph:
 			deg[i] = self.outdeg[i] * (nv + 1) + self.indeg[i]
 		idx = sorted(range(nv),key = lambda x: deg[x], reverse = True)
 		deg.sort(reverse = True)
+		# print(idx)
 
 		# construct permutaion list
 		cl = [idx[0]]
@@ -114,6 +126,7 @@ class Graph:
 			listToCombine.append([[idx[i]]])
 		
 		permlist = self._get_perm_list(listToCombine)
+		# print(permlist)
 		nperm = len(permlist)
 		self.alt = []
 		self.alt_loc = []
@@ -180,6 +193,9 @@ class Graph:
 			for j in range(nv):
 				self.am[i][j] = temp_am[idx[i]][idx[j]]
 
+	def set_interch(self,isInterch):
+		self._is_interch = isInterch
+
 	def _rearrange(self,idx):
 		"""
 		Reorder the adjcency matrix to the specified new adjmat
@@ -190,10 +206,16 @@ class Graph:
 		"""
 		nv = len(idx)
 		newgraph = [row[:] for row in self.am]
-		new_loc = [0] * nv
+		if self.isInterch:
+			new_loc = [0] * nv
+		else:
+			new_loc = []
 		for i in range(nv):
-			new_loc[i] = self.locs[idx[i]]
+			if self.isInterch:
+				new_loc[i] = self.locs[idx[i]]
 			for j in range(nv):
+				# print 'i is: ' + str(i) + ', j is: ' + str(j)
+				# print(self.am)
 				newgraph[i][j] = self.am[idx[i]][idx[j]]
 		return newgraph, new_loc
 
@@ -202,9 +224,9 @@ class Graph:
 		l2 = len(other_graph.am)
 		if l1 != l2:
 			return False
-		if self.isInterch != other_graph.isInterch:
+		if self._is_interch != other_graph._is_interch:
 			return False
-		if self.isInterch:
+		if self._is_interch:
 			is_ism = (self.am == other_graph.am) and (self.locs == other_graph.locs)
 			if is_ism:
 				return True
@@ -226,6 +248,35 @@ class Graph:
 				if self.alt[i] == other_graph.am:
 					return True
 			return False
+
+	def export(self):
+		am = self.am
+		if self._is_interch:
+			locs = self.locs
+		else:
+			locs = []
+		return Graph(am = am, locs = locs)
+
+	def __str__(self):
+		if self.isInterch:
+			temp = 'Interchangable vertices\n'
+		else:
+			temp = 'Uninterchangable vertices\n\n'
+		temp += 'Adjacency matrix\n'
+		n = len(self.am)
+		for i in range(n):
+			for j in range(n-1):
+				temp += str(self.am[i][j]) + ' '
+			temp += str(self.am[i][-1]) + '\n'
+		if self.isInterch:
+			temp += '\ncluster/location id\n'		
+			for i in range(n-1):
+				temp += str(self.locs[i]) + ' '
+			temp += str(self.locs[-1]) + '\n'
+		return temp
+
+
+
 
 	def write_motif(self,outputfilename):
 		"""
@@ -293,10 +344,6 @@ class Graph:
 				for i in range(len(cells)):
 					locs[i] = int(cells[i])
 			return Graph(am = am, locs = locs)
-
-
-
-			
 
 
 # def haversine(lon1, lat1, lon2, lat2):
@@ -385,6 +432,7 @@ class ClusterEngine():
 		self.eps = eps
 		self.minpts = minpts
 		n = len(data)
+		self._dist_ready = False
 		# self.labels = [-1] * n
 
 
@@ -411,6 +459,8 @@ class ClusterEngine():
 		"""
 		calculate pairwise distance
 		"""
+		if self._dist_ready == True:
+			return
 		start_time = time.time()
 		# n = len(self.data)
 		# for i in range(n-1):
@@ -421,6 +471,11 @@ class ClusterEngine():
 		self.dist_matrix = vectorized_haversine2(self.data)
 		if show_time:
 			print 'Computing distance matrix: ' + str(time.time() - start_time) + ' seconds.'
+		self._dist_ready = True
+
+	def reset_dist_matrix(self):
+		self.dist_matrix = []
+		self._dist_ready = False
 
 	def write_labels(self,outputfilename):
 		with open(outputfilename,'w') as f:
@@ -589,6 +644,45 @@ def load_location_data(filename,columns = [], valid_user = []):
 			users[user_id].add(user_time,user_location)
 	return users
 
+def load_valid_location_data():
+	# users = {} # dictionary {user_id:User object, ...}
+	# with open('valid_location_data.csv','r') as f:
+	# 	lines = f.readlines()
+	# 	l_lines = len(lines)
+	# 	for i in range(1,l_lines):
+	# 		line = lines[i]
+	# 		cells = line[:-2].split(',')
+	# 		user_id = cells[0]
+	# 		# print cells
+	# 		user_time = dt.datetime.strptime(cells[1],'%Y/%m/%d/%H/%M/%S')
+	# 		user_location = [float(cells[2]),float(cells[3])]
+	# 		user_speed = float(cells[4])
+	# 		if user_speed > 1: # speed threshold
+	# 			continue
+	# 		if user_id not in users:
+	# 			users[user_id] = User(user_id)
+	# 		users[user_id].add(user_time,user_location)
+	# return users
+	users = Users() # dictionary {user_id:User object, ...}
+	with open('valid_location_data.csv','r') as f:
+		lines = f.readlines()
+		l_lines = len(lines)
+		for i in range(1,l_lines):
+			line = lines[i]
+			cells = line[:-2].split(',')
+			user_id = cells[0]
+			# print cells
+			user_time = dt.datetime.strptime(cells[1],'%Y/%m/%d/%H/%M/%S')
+			user_location = [float(cells[2]),float(cells[3])]
+			user_speed = float(cells[4])
+			if user_speed > 1: # speed threshold
+				continue
+			users.add_data(user_id,user_time,user_location)
+		users.load()
+	return users
+
+
+
 def write_user_data(filename,users):
 	if filename.split('.')[-1] != 'csv':
 		filename = filename + '.csv'
@@ -606,10 +700,140 @@ class Motif:
 	"""
 	A motif object includes a network/graph, location(if interchangable), frequency
 	"""
-	def __init__(self, graph, freq = 0):
+	def __init__(self, graph, freq = 1):
 		self.graph = graph # a Graph object
 		self.freq = freq
 
+	def __str__(self):
+		"""
+		String format:
+		number of vertices, whether is interchangable, frequency
+		[[adjacency matrix]]
+		[locatino/cluster id if applicable]
+		"""
+		n = len(self.graph.am)
+		temp = str(n) + ','
+		if self.graph._is_interch:
+			temp += str(1) + ','
+		else:
+			temp += str(0) + ','
+		temp += str(self.freq) + '\n'
+		for i in range(n):
+			for j in range(n-1):
+				temp += str(self.graph.am[i][j]) + ','
+			temp += str(self.graph.am[i][-1]) + '\n'
+		if self.graph._is_interch:
+			for i in range(n-1):
+				temp += str(self.graph.locs[i]) +','
+			temp += str(self.graph.locs[-1]) + '\n'
+		return temp
+
+	def equal(self,other_graph):
+		return self.graph.ism_to(other_graph)
+
+	def increment(self,inc = 1):
+		self.freq += inc
+	
+	@staticmethod
+	def write_to_file(filename,motifs):
+		"""
+		agrs:
+			filename: file to print motifs
+			motifs: list of motifs
+		"""
+		with open(filename,'w') as f:
+			for m in motifs:
+				f.write(str(m))
+
+	@staticmethod
+	def copy(m):
+		return Motif(graph = m.graph.export(), freq = m.freq)
+
+	@staticmethod
+	def combine(users):
+		"""
+		args:
+			users: a list of user object
+		"""
+		spec = []
+		nspec = []
+		for u in users:
+			spec_motif, nspec_motif = u.get_motif()
+			for m in spec_motif:
+				ex = False
+				for i in spec:
+					if i.equal(m.graph):
+						i.increment(m.freq)
+						ex = True
+						break
+				if not ex:
+					spec.append(Motif.copy(m))
+			for m in nspec_motif:
+				ex = False
+				for i in nspec:
+					if i.equal(m.graph):
+						i.increment(m.freq)
+						ex = True
+						break
+				if not ex:
+					nspec.append(Motif.copy(m))
+		spec.sort(key = lambda x: x.freq, reverse = True)
+		nspec.sort(key = lambda x: x.freq, reverse = True)
+		return spec, nspec
+
+class Users:
+	def __init__(self):
+		self._data = {}
+		self._is_sorted = False
+
+	def add_user(self,user_id):
+		if user_id not in self._data:
+			self._data[user_id] = User(user_id)
+	def add_data(self,user_id,user_time,user_location):
+		if user_id not in self._data:
+			self._data[user_id] = User(user_id)
+		self._data[user_id].add(user_time,user_location)
+
+	def load(self):
+		if self._is_sorted == True:
+			return
+		User.prepare_all(self._data)
+		self._sorted_id, self._sorted_size = User.sort_all(self._data)
+		self._is_sorted = True
+	
+	def cluster_all(self):
+		for user in self._data.values():
+			user.run_cluster()
+
+	def run_analysis(self,round_trip = False):
+		for user in self._data.values():
+			user.run_analysis(round_trip = round_trip)
+
+	def __str__(self):
+		ostr = ''
+		n = len(self._data)
+		if self._is_sorted == False:
+			self.load()
+		ostr += 'In sorted order:\n'
+		for i in range(n):
+			ostr += str(i) + ' - ' + self._sorted_id[i] + ': ' + str(self._sorted_size[i]) + '\n'
+		return ostr
+
+	def get(self,u):
+		if type(u) is str:
+			if u in self._data:
+				return self._data[u]
+			else:
+				print 'User id not found.\n'
+				return 'User id not found.\n'
+		if type(u) is int:
+			if self._is_sorted:
+				return self._data[self._sorted_id[u]]
+			else:
+				print 'Data not in sorted order. User users.load() first.\n'
+				return 'Data not in sorted order. User users.load() first.\n'
+		print 'argument has to be either type int or str. \n'
+		return 'argument has to be either type int or str. \n'
 
 class User:
 	S2M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
@@ -636,6 +860,71 @@ class User:
 			total_size += data_engine.get_size()
 		return total_size
 
+	def run_analysis(self, round_trip = False):
+		for data_engine in self._data.values():
+			data_engine.run_analysis(round_trip = round_trip)
+		spec = []
+		nspec = []
+		for des in self._data.values():
+			if des.is_sufficient():
+				for m in des._nspec_motif:
+					ex = False
+					for i in nspec:
+						if i.equal(m.graph):
+							i.increment(m.freq)
+							ex = True
+							break
+					if not ex:
+						nspec.append(Motif.copy(m))
+				for m in des._spec_motif:
+					ex = False
+					for i in spec:
+						if i.equal(m.graph):
+							i.increment(m.freq)
+							ex = True
+							break
+					if not ex:
+						spec.append(Motif.copy(m))
+		spec.sort(key = lambda x: x.freq, reverse = True)
+		nspec.sort(key = lambda x: x.freq, reverse = True)
+		self._spec_motif = spec
+		self._nspec_motif = nspec
+
+
+	def get_motif(self):
+		return self._spec_motif, self._nspec_motif
+
+	def __str__(self):
+		temp = self._uid + '\n'
+		cnt  = -1
+		for de in self._data:
+			cnt += 1
+			temp += str(cnt) + ' - ' + de + ': ' + str(len(self._data[de]._ce.data)) + '\n'
+		return temp
+
+	def get(self,u):
+		if type(u) is str:
+			if u in self._data:
+				return self._data[u]
+			else:
+				print 'User id not found.\n'
+				return 'User id not found.\n'
+		if type(u) is int:
+			if u < len(self._data):
+				return self._data.values()[u]
+			else:
+				return 'Index out of bound.\n'
+		return 'argument has to be either type int or str. \n'
+
+	def print_cluster_size_distribution(self):
+		max_num = 0
+		for de in self._data.values():
+			if max(de.get_daily_cluster_num) > max_num:
+				max_num = max(de.get_daily_cluster_num)
+		distribution = [0] * max_num
+		for de in self._data.values():
+			for v in 
+
 	@staticmethod
 	def prepare_all(users):
 		for u in users.values():
@@ -655,17 +944,31 @@ class User:
 		user_size.sort(reverse = True)
 		return new_user_id, user_size
 
+	@staticmethod
+	def print_users_size(user_id,user_size):
+		n_user = len(user_id)
+		for i in range(n_user):
+			print str(i+1) + ' - ' + user_id[i] + ': ' + str(user_size[i])
+
 class DataEngine:
 	def __init__(self,season):
 		self._season = season
 		self._data = {}
 		self._ce = ClusterEngine()
+		self._is_sufficient = False
 
 	def add(self,user_time,user_location):
 		date_str = str(user_time.date())
 		if date_str not in self._data:
 			self._data[date_str] = DailyData(user_time.date())
 		self._data[date_str].add(user_time,user_location)
+
+	def get_ce(self):
+		return self._ce
+
+	def plot_data(self):
+		plt.scatter(self._ce.data[:,0],self._ce.data[:,1])
+		plt.show()
 
 	def prepare(self):
 		cluster_data = np.zeros(shape = [0,2], dtype = 'float')
@@ -677,15 +980,78 @@ class DataEngine:
 				daily_data.set_start(p)
 				p += daily_data.get_size()
 				daily_data.set_end(p)
-		self._ce.load_data(cluster_data)
+		if len(cluster_data) <= 10:
+			self._is_sufficient = False
+		else:
+			self._is_sufficient = True
+			self._ce.load_data(cluster_data)
+
+	def is_sufficient(self):
+		return self._is_sufficient
 
 	def run_cluster(self):
-		self._ce.run(show_time = True)
-		for daily_data in self._data.values():
-			if daily_data.is_valid():
-				daily_data.set_cluster(self._ce.labels[daily_data.get_start():daily_data.get_end()])
+		if not self._is_sufficient:
+			print 'not enough data\n'
+		else:
+			self._ce.run(show_time = True)
+			for daily_data in self._data.values():
+				if daily_data.is_valid():
+					daily_data.set_cluster(self._ce.labels[daily_data.get_start():daily_data.get_end()])
 	def get_size(self):
 		return len(self._ce.data)
+
+	def reset_dist_matrix(self):
+		self._ce.reset_dist_matrix()
+
+	def run_analysis(self, round_trip = False):
+		self._nspec_motif = []
+		self._spec_motif = []
+		for daily_data in self._data.values():
+			if daily_data.is_valid():
+				if round_trip and not daily_data.is_round_trip():
+					continue
+				daily_data.gen_network()
+				daily_data._graph.set_interch(False)
+				nspec_exist = False
+				for motif in self._nspec_motif:
+					if motif.equal(daily_data._graph):
+						motif.increment()
+						nspec_exist = True
+						break
+				if not nspec_exist:
+					self._nspec_motif.append(Motif(graph = daily_data._graph.export()))
+				daily_data._graph.set_interch(True)
+				spec_exist = False
+				for motif in self._spec_motif:
+					if motif.equal(daily_data._graph):
+						motif.increment()
+						spec_exist = True
+						break
+				if not spec_exist:
+					self._spec_motif.append(Motif(graph = daily_data._graph.export()))
+				self._nspec_motif.sort(key = lambda x: x.freq, reverse = True)
+				self._spec_motif.sort(key = lambda x: x.freq, reverse = True)
+
+		def get_motif(self):
+			return self._nspec_motif, self._spec_motif
+		def get_daily_cluster_num(self):
+			ret = []
+			for v in self._data.values():
+				ret.append(v.get_n)
+			return ret
+				
+	@staticmethod
+	def _add_network(motif_ls, freq_ls, new_network):
+		n = len(motif_ls)
+		motif_exist = False
+		for i in range(n):
+			if new_network.is_ism(motif_ls[i]):
+				freq_ls[i] += 1
+				motif_exist = True
+				break
+		if not motif_exist:
+			freq_ls.append(new_network)
+
 
 class DailyData:
 	def __init__(self,new_date):
@@ -696,7 +1062,7 @@ class DailyData:
 		self._is_sorted = False
 		self._start = -1
 		self._end = -1
-		self._graphs = []
+		self._graph = []
 
 	def get_size(self):
 		return len(self._data)
@@ -716,6 +1082,30 @@ class DailyData:
 			self._is_valid = True
 		else:
 			self._is_valid = False
+
+	def gen_network(self):
+		if self.is_valid():
+			clusters = np.unique(self._cluster)
+			if -1 in clusters:
+				clusters = np.delete(clusters,np.where(clusters==-1))
+			clusters = clusters.tolist()
+			num_vertices = len(clusters)
+			tnetwork = [[0] * num_vertices for _ in range(num_vertices)]
+			num_entry = self.get_size()
+			prev_v = -1
+			for i in range(num_entry):
+				if self._cluster[i] == -1:
+					continue
+				if prev_v == -1:
+					prev_v = clusters.index(self._cluster[i])
+					continue
+				curr_v = clusters.index(self._cluster[i])
+				if curr_v == prev_v:
+					continue
+				else:
+					tnetwork[prev_v][curr_v] = 1
+				prev_v = curr_v
+			self._graph = Graph(am = tnetwork, locs = clusters)
 
 	def is_valid(self):
 		return self._is_valid
@@ -744,3 +1134,15 @@ class DailyData:
 
 	def set_cluster(self,cluster):
 		self._cluster = cluster
+
+	def is_round_trip(self):
+		if self._cluster[0]==self._cluster[-1]:
+			return True
+		else:
+			return False
+
+	def get_num_cluster(self):
+		clusters = np.unique(self._cluster)
+		if -1 in clusters:
+			clusters = np.delete(clusters,np.where(clusters==-1))
+		return len(clusters)

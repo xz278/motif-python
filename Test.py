@@ -8,6 +8,10 @@ locs = [1,2,3]
 g4 = [[0,0,0],[1,0,0],[1,1,0]]
 g = Graph(am = g1)
 
+from motif2 import *
+g = Graph(am = [[0,1,1],[1,0,1],[0,0,0]], locs = [1,2,3])
+m = Motif(g,20)
+
 from motif import *
 x = read_data('testd.csv')
 ce = ClusterEngine(data = x, algo = 'optics')
@@ -181,34 +185,61 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 
-from motif2 import *
-valid_user = csv_read('validUser.csv')
-users = load_location_data(filename = 'location_data.csv',valid_user = valid_user)
+# from motif2 import *
+# valid_user = csv_read('validUser.csv')
+# users = load_location_data(filename = 'location_data.csv',valid_user = valid_user)
 
-u = users.values()[20]
-u.prepare()
+# u = users.values()[20]
+# u.prepare()
+# u.run_cluster()
+# u._data.values()[0]._ce.plot_cluster()
+
+# User.prepare_all(users)
+# sortedid, sortedsize = User.sort_all(users)
+
+# n_lines = len(output_matrix)
+# with open('eg.csv','w') as f:
+# 	for i in range(n_lines):
+# 		w = len(output_matrix[i])
+# 		temp_line = output_matrix[i][0]
+# 		for j in range(1,w):
+# 			temp_line += ',' + str(output_matrix[i][j])
+# 		temp_line += '\n'
+# 		f.write(temp_line)
+
+# from motif2 import *
+# x = read_from_file('eg.csv')
+# y = read_from_file('egl.csv')
+# ce = ClusterEngine(data = x)
+# # ce.run(show_time = True)
+# ce.labels = y
+# ce.plot_cluster()
+
+# save_to_file('eglabel.csv')
+
+# import datetime as dt
+# str_time = '2015/01/28/09/15/42'
+# time_format = '%Y/%m/%d/%H/%M/%S'
+# dt.datetime.strptime(str_time,time_format)
+
+# def testdef():
+from motif2 import *
+users = load_valid_location_data()
+print(users)
+u = users.get(60)
 u.run_cluster()
-u._data.values()[0]._ce.plot_cluster()
-
-User.prepare_all(users)
-sortedid, sortedsize = User.sort_all(users)
-
-n_lines = len(output_matrix)
-with open('eg.csv','w') as f:
-	for i in range(n_lines):
-		w = len(output_matrix[i])
-		temp_line = output_matrix[i][0]
-		for j in range(1,w):
-			temp_line += ',' + str(output_matrix[i][j])
-		temp_line += '\n'
-		f.write(temp_line)
+u.run_analysis()
+listc = [u,u]
+spec,nspec = Motif.combine(listc)
 
 from motif2 import *
-x = read_from_file('eg.csv')
-y = read_from_file('egl.csv')
-ce = ClusterEngine(data = x)
-# ce.run(show_time = True)
-ce.labels = y
-ce.plot_cluster()
+users = load_valid_location_data()
+U = [41,42,43,44,45,46,47,48,49,50,51]
+us = []
+for i in U:
+	u = users.get(i)
+	u.run_cluster()
+	u.run_analysis(round_trip = True)
+	us.append(u)
+spec,nspec = Motif.combine(us)
 
-save_to_file('eglabel.csv')
