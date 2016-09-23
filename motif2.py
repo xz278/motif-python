@@ -137,7 +137,8 @@ class Graph:
 				self.alt_loc.append(temp_alt_loc)
 		self._change_to(permlist[0])
 
-
+	def get_num_vertices(self):
+		return len(self.am)
 
 	def _get_perm_list(self,ls):
 		retls = []
@@ -916,14 +917,20 @@ class User:
 				return 'Index out of bound.\n'
 		return 'argument has to be either type int or str. \n'
 
-	def print_cluster_size_distribution(self):
+	def get_cluster_size_distribution(self):
 		max_num = 0
 		for de in self._data.values():
-			if max(de.get_daily_cluster_num) > max_num:
-				max_num = max(de.get_daily_cluster_num)
+			if not de.is_sufficient():
+				continue
+			t = de.get_daily_cluster_num()
+			if max(t) > max_num:
+				max_num = t
 		distribution = [0] * max_num
 		for de in self._data.values():
-			for v in 
+			if not de.is_sufficient():
+				continue
+			for daily_data in de._data.values():
+				distribution[daily_data.get_num_cluster()] += 1
 
 	@staticmethod
 	def prepare_all(users):
@@ -1036,8 +1043,8 @@ class DataEngine:
 			return self._nspec_motif, self._spec_motif
 		def get_daily_cluster_num(self):
 			ret = []
-			for v in self._data.values():
-				ret.append(v.get_n)
+			for daily_data in self._data.values():
+				ret.append(daily_data.get_num_cluster)
 			return ret
 				
 	@staticmethod
@@ -1136,13 +1143,21 @@ class DailyData:
 		self._cluster = cluster
 
 	def is_round_trip(self):
-		if self._cluster[0]==self._cluster[-1]:
+		i = 0
+		l = len(self._data)
+		while i<l and self._cluster[i]==-1:
+			i +=1
+		j = -1
+		while j>=-l and self._cluster[j]==-1:
+			j -= 1
+		if self._cluster[i]==self._cluster[j]:
 			return True
 		else:
 			return False
 
 	def get_num_cluster(self):
-		clusters = np.unique(self._cluster)
-		if -1 in clusters:
-			clusters = np.delete(clusters,np.where(clusters==-1))
-		return len(clusters)
+		# clusters = np.unique(self._cluster)
+		# if -1 in clusters:
+		# 	clusters = np.delete(clusters,np.where(clusters==-1))
+		# return len(clusters)
+		return self._graph.get_num_vertices()

@@ -243,3 +243,10 @@ for i in U:
 	us.append(u)
 spec,nspec = Motif.combine(us)
 
+from motifanalysis import *
+users = read_data()
+u = users.get(50)
+u.usertfile('u50.csv')
+
+from motifanalysis import *
+u = User.userffile('u50.csv')
