@@ -2,6 +2,7 @@ import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np
 from motif2 import haversine
+from Graph import *
 
 def timestr(datetime_obj):
 	return dt.datetime.strftime(datetime_obj,'%Y/%m/%d/%H/%M/%S')
@@ -88,6 +89,10 @@ class User:
 			f.write(str(self))
 
 	def time_density(self):
+		"""
+		return:
+			number of points
+		"""
 		hours = [0] * 24
 		n = len(self.data)
 		for i in range(n):
@@ -105,6 +110,10 @@ class User:
 		plt.show()
 
 	def activity_level(self):
+		"""
+		return:
+			average travel distance per hour
+		"""
 		# haversine(lat1, lon1, lat2, lon2)
 		n = len(self.data)
 		hours = [0] * 24
@@ -151,3 +160,4 @@ class User:
 			user.add(time,lat,lon,speed)
 		user.sortself()
 		return user
+

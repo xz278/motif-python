@@ -232,16 +232,41 @@ u.run_analysis()
 listc = [u,u]
 spec,nspec = Motif.combine(listc)
 
+# ------------- Oct 1 ----------------------
 from motif2 import *
 users = load_valid_location_data()
-U = [41,42,43,44,45,46,47,48,49,50,51]
-us = []
+# U = [41,42,43,44]
+U = [32,33,34,35,36,37,38,39,40]
+epss = [3,5,8,10,15,20,25,30]
+minptss = [3,5,10,15,20,25]
+chosen_users = []
 for i in U:
 	u = users.get(i)
-	u.run_cluster()
-	u.run_analysis(round_trip = True)
-	us.append(u)
-spec,nspec = Motif.combine(us)
+	# u.prepare()
+	# print u
+	u.load_dist_matrix()
+	chosen_users.append(u)
+
+final_results = []
+for ceps in epss:
+	for cminpts in minptss:
+		print 'eps: ' + str(ceps) + '  cminpts: ' + str(cminpts)
+		for u in chosen_users:
+			print u._uid
+			u.set_cluster_para(minpts = ceps, eps = cminpts)
+			u.run_cluster()
+			u.run_analysis(round_trip = True)
+		final_results.append(Motif.combine(chosen_users))
+
+cnt = -1
+for ceps in epss:
+	for cminpts in minptss:
+		cnt += 1
+		filename = 'n' + str(ceps) + str(cminpts) + '.csv'
+		Motif.write_to_file(filename,final_results[cnt][1])
+
+# ------------- Oct 1 ---------------------
+u030_rct@eureka
 
 from motifanalysis import *
 users = read_data()

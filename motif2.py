@@ -780,7 +780,7 @@ class Motif:
 					nspec.append(Motif.copy(m))
 		spec.sort(key = lambda x: x.freq, reverse = True)
 		nspec.sort(key = lambda x: x.freq, reverse = True)
-		return spec, nspec
+		return [spec, nspec]
 
 class Users:
 	def __init__(self):
@@ -851,9 +851,19 @@ class User:
 	def prepare(self):
 		for data_engine in self._data.values():
 			data_engine.prepare()
+
+	def load_dist_matrix(self):
+		for data_engine in self._data.values():
+			data_engine.load_dist_matrix()
+
 	def run_cluster(self):
 		for data_engine in self._data.values():
 			data_engine.run_cluster()
+
+	def set_cluster_para(self,minpts = 10, eps = 10):
+		for data_engine in self._data.values():
+			data_engine._ce.set_minpts(minpts)
+			data_engine._ce.set_eps(eps)
 
 	def get_size(self):
 		total_size = 0
@@ -965,7 +975,11 @@ class DataEngine:
 		self._is_sufficient = False
 
 	def add(self,user_time,user_location):
-		date_str = str(user_time.date())
+		if user_time.hour <= 3:
+			tempdatetime = user_time - dt.timedelta(days = 1)
+		else:
+			tempdatetime = user_time
+		date_str = str(tempdatetime.date())
 		if date_str not in self._data:
 			self._data[date_str] = DailyData(user_time.date())
 		self._data[date_str].add(user_time,user_location)
@@ -992,6 +1006,11 @@ class DataEngine:
 		else:
 			self._is_sufficient = True
 			self._ce.load_data(cluster_data)
+
+	def load_dist_matrix(self):
+		if self._is_sufficient:
+			self._ce._compute_dist_matrix(show_time = True)
+
 
 	def is_sufficient(self):
 		return self._is_sufficient
