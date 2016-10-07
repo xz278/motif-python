@@ -274,4 +274,8 @@ u = users.get(50)
 u.usertfile('u50.csv')
 
 from motifanalysis import *
+# u = User.userffile('u33.csv')
 u = User.userffile('u50.csv')
+u.form_daily_data()
+t = u.get(5)
+t.plot_traj()

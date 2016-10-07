@@ -981,7 +981,7 @@ class DataEngine:
 			tempdatetime = user_time
 		date_str = str(tempdatetime.date())
 		if date_str not in self._data:
-			self._data[date_str] = DailyData(user_time.date())
+			self._data[date_str] = DailyData(tempdatetime.date())
 		self._data[date_str].add(user_time,user_location)
 
 	def get_ce(self):
