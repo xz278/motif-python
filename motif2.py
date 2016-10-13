@@ -12,9 +12,9 @@ from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
 import time
 import datetime as dt
-# import matplotlib.pyplot as plt
 from operator import itemgetter
 import sys
+from pytz import timezone
 # import hdbscan
 
 
@@ -448,8 +448,8 @@ class ClusterEngine():
 		start_time = time.time()
 		if self.algo == 'dbscan':
 			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
-		# if self.algo == 'optics':
-		# 	self.labels = self._optics_cluster()
+		if self.algo == 'optics':
+			self.labels = self._optics_cluster()
 		# if self.algo == 'hdbscan':
 		# 	self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
 		if show_time:
@@ -494,7 +494,9 @@ class ClusterEngine():
 
 		ax.plot(X[:,0], X[:,1], 'y.')
 		unique_cluster = np.unique(self.labels)
-		unique_cluster = unique_cluster[1:]
+		# unique_cluster = unique_cluster[1:]
+		index_to_del = np.where(unique_cluster == -1)[0]
+		unique_cluster = np.delete(unique_cluster, index_to_del)
 
 
 		## first way to get colosr:
@@ -510,7 +512,7 @@ class ClusterEngine():
 		clrs = np.random.rand(len(unique_cluster),3)
 		# for i in range(n):
 		#     ax.plot(X[i,0],X[i,1], clrs[self.labels[i]][1]+'o', ms=5)
-		
+		# print clrs
 		if len(unique_cluster) != 0:
 			for i in range(n):
 				c = self.labels[i]
@@ -518,6 +520,7 @@ class ClusterEngine():
 					continue
 				else:
 					# ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+					# print c
 					ax.plot(X[i,0], X[i,1],color = clrs[c,:], marker = 'o', ms=5)
 		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
 		    orientation='portrait', papertype=None, format=None,
@@ -554,27 +557,27 @@ class ClusterEngine():
 		self.labels = [-1] * n
 		# self.dist_matrix = [[0] * n for _ in range(n)]
 
-	# def _optics_cluster(self):
-	#     x = np.array(self.data)
-	#     RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
-	#     RPlot = []
-	#     RPoints = []
-	#     num_points = np.size(x,0)
-	#     for item in order:
-	#         RPlot.append(RD[item])
-	#         RPoints.append([x[item][0],x[item][1]])
+	def _optics_cluster(self):
+	    x = np.array(self.data)
+	    RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
+	    RPlot = []
+	    RPoints = []
+	    num_points = np.size(x,0)
+	    for item in order:
+	        RPlot.append(RD[item])
+	        RPoints.append([x[item][0],x[item][1]])
 
-	#     rootNode = AutoC.automaticCluster(RPlot, RPoints)
-	#     leaves = AutoC.getLeaves(rootNode, [])
+	    rootNode = AutoC.automaticCluster(RPlot, RPoints)
+	    leaves = AutoC.getLeaves(rootNode, [])
 
-	#     temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
-	#     cluster_cnt = -1
-	#     for leaf in leaves:
-	#         cluster_cnt += 1
-	#         for v in range(leaf.start, leaf.end):
-	# 			cluster_idx = order[v]
-	# 			temp_labels[cluster_idx] = cluster_cnt
-	#     return temp_labels
+	    temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
+	    cluster_cnt = -1
+	    for leaf in leaves:
+	        cluster_cnt += 1
+	        for v in range(leaf.start, leaf.end):
+				cluster_idx = order[v]
+				temp_labels[cluster_idx] = cluster_cnt
+	    return temp_labels
 
 
 # location_data format:
@@ -673,7 +676,11 @@ def load_valid_location_data():
 			cells = line[:-2].split(',')
 			user_id = cells[0]
 			# print cells
-			user_time = dt.datetime.strptime(cells[1],'%Y/%m/%d/%H/%M/%S')
+			user_time = dt.datetime.strptime(cells[1],'%Y/%m/%d/%H/%M/%S')		
+			utc = timezone('UTC')
+			ny = timezone('America/New_York')
+			user_time = utc.localize(user_time)
+			user_time = user_time.astimezone(ny)
 			user_location = [float(cells[2]),float(cells[3])]
 			user_speed = float(cells[4])
 			if user_speed > 1: # speed threshold
@@ -1180,3 +1187,41 @@ class DailyData:
 		# 	clusters = np.delete(clusters,np.where(clusters==-1))
 		# return len(clusters)
 		return self._graph.get_num_vertices()
+
+	def plot_cluster(self):
+		X = self.get_cluster_data()
+		n = np.size(X,0)
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+
+		ax.plot(X[:,0], X[:,1], 'y.')
+		unique_cluster = np.unique(self._cluster)
+		unique_cluster = unique_cluster[1:]
+
+
+		## first way to get colosr:
+		# colors = cycle('gmkrcbgrcmk')
+		# clrs = zip(unique_cluster,colors)
+		## alternate way:
+		# clrs = []
+		# for i in range(len(unique_cluster)):
+		# 	temp_clr = np.random.rand(3,1)
+		# 	while temp_clr in clrs: 
+		# 		temp_clr = np.random.rand(3,1)
+		# 	clrs.append(temp_clr)
+		clrs = np.random.rand(len(unique_cluster),3)
+		# for i in range(n):
+		#     ax.plot(X[i,0],X[i,1], clrs[self.labels[i]][1]+'o', ms=5)
+		
+		if len(unique_cluster) != 0:
+			for i in range(n):
+				c = self._cluster[i]
+				if c == -1:
+					continue
+				else:
+					# ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+					ax.plot(X[i,0], X[i,1],color = clrs[c,:], marker = 'o', ms=5)
+		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
+		    orientation='portrait', papertype=None, format=None,
+		    transparent=False, bbox_inches=None, pad_inches=0.1)
+		plt.show()

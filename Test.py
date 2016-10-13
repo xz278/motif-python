@@ -273,9 +273,57 @@ users = read_data()
 u = users.get(50)
 u.usertfile('u50.csv')
 
+
+# ----------------------------------------------
+
 from motifanalysis import *
 # u = User.userffile('u33.csv')
 u = User.userffile('u50.csv')
 u.form_daily_data()
-t = u.get(5)
+pr5nt1u
+t = u.getd(44)
+
+
+
+
+from motif2 import *
+users = load_valid_location_data()
+u2 = users.get('u080_rct@eureka')
+u2.run_cluster()
+
+
+
 t.plot_traj()
+
+
+from motifanalysis import *
+users = read_data()
+u = users.get(36)
+u.form_daily_data()
+u.activity_level()
+
+# send Saeed u33: u030_rct@eureka
+
+from motifanalysis import *
+users = read_data('u050_rct@eureka.csv')
+u = users.get(0)
+u.run_analysis()
+
+d = u.getmd()
+d.run_dbscan(minpts = 3)
+d.write_labels()
+
+from motifanalysis import *
+users = read_data('u004_rct@eureka.csv')
+u = users.get(0)
+t = u.getmd()
+t.run_dbscan()
+t.clusters[0].idx_list
+t = u.getd(10)
+t.run_dbscan()
+t.clusters[0].idx_list
+
+from motifanalysis import *
+users = read_data('u010_rct@eureka.csv')
+u = users.get(0)
+u.run_analysis(daily_minpts = 3, global_minpts = 5)
