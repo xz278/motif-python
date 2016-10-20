@@ -81,6 +81,16 @@ class User:
 		self.analyzed = False
 
 	
+	def write_csv(self):
+		filename = self.uid + '.csv'
+		with open(filename,'w') as f:
+			f.write('time,latitude,longitude\n')
+			for i in range(len(self.data)):
+				f.write(str(self.data[i][0]) +','+ str(self.data[i][1]) +','+ str(self.data[i][2]) +'\n')
+
+
+
+
 	def add(self,time,lat,lon,speed):
 		self.data.append([time,lat,lon,speed])
 
@@ -120,7 +130,7 @@ class User:
 	# 			f.write(str(ct[0]) + ',' + str(ct[1]))
 	# 	print 'centroids exported to ' + filename + '.'
 
-	def run_analysis(self,daily_minpts = 3,global_minpts = 1):
+	def run_analysis(self,daily_minpts = 3,daily_eps = 10, daily_algo = 'dbscan',global_minpts = 1,global_algo = 'dbscan',global_eps = 10):
 		nd = len(self.daily_data)
 		self.is_valid = [False] * nd
 		th = 24 / 0.25 * 0.8
@@ -131,7 +141,7 @@ class User:
 			dd = self.daily_data[i]
 			if len(dd.data) >= th:
 				self.is_valid[i] = True
-				dd.run_dbscan(minpts = daily_minpts, eps = 10)
+				dd.run_cluster(minpts = daily_minpts, eps = daily_eps, algo = daily_algo)
 				# self.nodes_distr.append(dd.num_nodes)
 				for k in dd.clusters:
 					c = dd.clusters[k]
@@ -139,7 +149,7 @@ class User:
 					temp_info.append([i,k])
 			# else:
 				# self.nodes_distr.append(0)
-		self.global_ce = ClusterEngine(data = temp_data, minpts = global_minpts, eps = 10)
+		self.global_ce = ClusterEngine(data = temp_data, minpts = global_minpts, eps = global_eps, algo = global_algo)
 		self.global_ce.run()
 		global_clusters = {}
 		for i in range(len(temp_info)):
@@ -159,7 +169,7 @@ class User:
 			c.dis_centroid()
 		self.global_clusters = global_clusters
 		self.analyzed = True
-		print 'number of nodes: ', len(self.global_clusters)
+		print('number of nodes: ' + len(self.global_clusters))
 		for i in range(nd):
 			if self.is_valid[i]:
 				self.nodes_distr.append(self.daily_data[i].get_num_gobal_nodes())
@@ -170,22 +180,22 @@ class User:
 		for v in self.nodes_distr:
 			distr[v] += 1
 		self.nodes_distr = distr
-		print 'distribution of number of nodes:'
-		print 'number of nodes      frequency'
+		print('distribution of number of nodes:')
+		print('number of nodes      frequency')
 		for i in range(maxd):
 			tempstr = str(i).rjust(len('number '))
 			tempstr += str(self.nodes_distr[i]).rjust(len('of nodes      frequ'))
-			print tempstr
+			print(tempstr)
 
 	def export_global_cluster_centroid(self):
 		filename = self.uid + '_cluster.csv'
 		if not self.analyzed:
-			print 'Run analysis() first.'
+			print('Run analysis() first.')
 			return
 		with open(filename,'w') as f:
 			for gc in self.global_clusters.values():
 				f.write(str(gc.centroid[0]) + ',' +str(gc.centroid[1]) + '\n' )
-		print 'clusters exported to ' + filename + '.'
+		print('clusters exported to ' + filename + '.')
 
 	def egcc(self):
 		self.export_global_cluster_centroid()
@@ -215,7 +225,7 @@ class User:
 		outputstr = ' time   frequency\n'
 		for i in range(24):
 			outputstr += str(i).rjust(len(' tim')) + str(hours[i]).rjust(len('e   freque')) + '\n'
-		print outputstr
+		print(outputstr)
 
 
 	# def plot_mobility(self):
@@ -273,7 +283,7 @@ class User:
 		outputstr = ''
 		for i in range(len(act)):
 			outputstr += str(i).rjust(4) + ' : ' + "{:6.1f}".format(act[i]) + ' meters\n'
-		print outputstr
+		print(outputstr)
 		# return act
 
 	def getd(self,i):
@@ -369,10 +379,24 @@ class DailyData:
 			temp += '\n'
 		return temp
 
-	def run_dbscan(self,minpts = 2, eps = 10, algo = 'dbscan'):
-		self.ce = ClusterEngine(algo = algo, data = self.data,eps = eps, minpts = minpts)
+	def run_cluster(self,minpts = -1, eps = -1, algo = ''):
+		if not self.ce_added:
+			if minpts == -1:
+				minpts = 5
+			if eps == -1:
+				eps = 10
+			if len(algo) == 0:
+				algo = 'dbscan'
+			self.ce = ClusterEngine(algo = algo, data = self.data,eps = eps, minpts = minpts)
+			self.ce_added = True
+		else:
+			if minpts != -1:
+				self.ce.set_minpts(minpts)
+			if eps != -1:
+				self.ce.set_eps(eps)
+			if len(algo) != 0:
+				self.ce.set_algo(algo)
 		self.ce.run()
-		self.ce_added = True
 		self.labels = self.ce.labels
 		self.global_labels = [-1] * len(self.data)
 		# self.ce.plot_cluster()
@@ -404,9 +428,9 @@ class DailyData:
 			with open(filename,'w') as f:
 				for c in self.clusters.values():
 					f.write(str(c.centroid[0]) + ',' + str(c.centroid[1]) + '\n')
-			print 'cluster centroid exported to ' + filename + '.'
+			print('cluster centroid exported to ' + filename + '.')
 		else:
-			print 'Run clustering first.'
+			print('Run clustering first.')
 
 
 	# def form_network(self):
@@ -482,7 +506,7 @@ class DailyData:
 	def wtc(self):
 		filename = str(self.start_date) + '.csv'
 		self.write_to_csv(filename)
-		print 'data stored in ' + filename
+		print('data stored in ' + filename)
 
 	def write_labels(self):
 		filename = str(self.start_date) + '_clusterlabels'+ '.csv'
@@ -502,9 +526,9 @@ class DailyData:
 						templine = str(x[i][0]) + ',' + str(x[i][1]) + '\n'
 						f.write(templine)
 					f.write('\n')
-			print 'clusters exported to ' + filename + '.'
+			print('clusters exported to ' + filename + '.')
 		else:
-			print 'Run clustering first.'
+			print('Run clustering first.')
 
 class Cluster:
 	def __init__(self):
@@ -519,7 +543,7 @@ class Cluster:
 		self.centroid = np.mean(self.data,0)
 	def dis_centroid(self):
 		tempstr = str(self.centroid[0]) + ',' + str(self.centroid[1])
-		print tempstr
+		print(tempstr)
 	def __str__(self):
 		tempstr = ''
 		for i in range(len(self.idx_list)):

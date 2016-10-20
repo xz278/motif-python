@@ -4,9 +4,9 @@ motif analysis
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import OpticsClusterArea as OP
+# import OpticsClusterArea as OP
 from itertools import *
-import AutomaticClustering as AutoC
+# import AutomaticClustering as AutoC
 import pickle
 from math import radians, cos, sin, asin, sqrt
 from sklearn.cluster import DBSCAN
@@ -15,6 +15,7 @@ import datetime as dt
 from operator import itemgetter
 import sys
 from pytz import timezone
+import folium 
 # import hdbscan
 
 
@@ -448,12 +449,12 @@ class ClusterEngine():
 		start_time = time.time()
 		if self.algo == 'dbscan':
 			self.labels = DBSCAN(eps=self.eps, min_samples=self.minpts,metric="precomputed").fit_predict(self.dist_matrix)
-		if self.algo == 'optics':
-			self.labels = self._optics_cluster()
+		# if self.algo == 'optics':
+		# 	self.labels = self._optics_cluster()
 		# if self.algo == 'hdbscan':
 		# 	self.labels = hdbscan.HDBSCAN(min_cluster_size = self.minpts).fit_predict(self.dist_matrix)
 		if show_time:
-			print 'Clustering: ' + str(time.time() - start_time) + ' seconds.'
+			print('Clustering: ' + str(time.time() - start_time) + ' seconds.')
 
 
 	def _compute_dist_matrix(self, show_time = False):
@@ -471,7 +472,7 @@ class ClusterEngine():
 		# self.dist_matrix = [[0] * n for _ in range(n)]
 		self.dist_matrix = vectorized_haversine2(self.data)
 		if show_time:
-			print 'Computing distance matrix: ' + str(time.time() - start_time) + ' seconds.'
+			print('Computing distance matrix: ' + str(time.time() - start_time) + ' seconds.')
 		self._dist_ready = True
 
 	def reset_dist_matrix(self):
@@ -487,32 +488,19 @@ class ClusterEngine():
 			f.write(str(self.labels[-1]))
 
 	def plot_cluster(self):
-		X = np.array(self.data)
-		n = np.size(X,0)
+		temp_X = np.array(self.data)  
+		n = np.size(temp_X,0)
+		X = np.zeros(shape = [n,2], dtype = 'float')
+		X[:,0] = temp_X[:,1]
+		X[:,1] = temp_X[:,0]
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-
 		ax.plot(X[:,0], X[:,1], 'y.')
 		unique_cluster = np.unique(self.labels)
 		# unique_cluster = unique_cluster[1:]
 		index_to_del = np.where(unique_cluster == -1)[0]
 		unique_cluster = np.delete(unique_cluster, index_to_del)
-
-
-		## first way to get colosr:
-		# colors = cycle('gmkrcbgrcmk')
-		# clrs = zip(unique_cluster,colors)
-		## alternate way:
-		# clrs = []
-		# for i in range(len(unique_cluster)):
-		# 	temp_clr = np.random.rand(3,1)
-		# 	while temp_clr in clrs: 
-		# 		temp_clr = np.random.rand(3,1)
-		# 	clrs.append(temp_clr)
 		clrs = np.random.rand(len(unique_cluster),3)
-		# for i in range(n):
-		#     ax.plot(X[i,0],X[i,1], clrs[self.labels[i]][1]+'o', ms=5)
-		# print clrs
 		if len(unique_cluster) != 0:
 			for i in range(n):
 				c = self.labels[i]
@@ -537,7 +525,7 @@ class ClusterEngine():
 		return self.minpts
 
 	def show_parameters(self):
-		print 'eps = ' + str(self.eps) + ', minpts = ' + str(self.minpts)
+		print('eps = ' + str(self.eps) + ', minpts = ' + str(self.minpts))
 
 	def set_eps(self,new_eps):
 		self.eps = new_eps
@@ -545,11 +533,16 @@ class ClusterEngine():
 	def set_minpts(self, new_minpts):
 		self.minpts = new_minpts
 
-	def set_params(self, new_eps = -1, new_minpts = -1):
+	def set_algo(self, new_algo):
+		self.alog = new_algo
+
+	def set_params(self, new_eps = -1, new_minpts = -1, new_algo = ''):
 		if new_eps != -1:
 			self.eps = new_eps
 		if new_minpts != -1:
 			self.minpts = new_minpts
+		if len(new_algo) != 0:
+			self.algo = new_algo
 
 	def load_data(self, new_data):
 		self.data = new_data
@@ -557,27 +550,27 @@ class ClusterEngine():
 		self.labels = [-1] * n
 		# self.dist_matrix = [[0] * n for _ in range(n)]
 
-	def _optics_cluster(self):
-	    x = np.array(self.data)
-	    RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
-	    RPlot = []
-	    RPoints = []
-	    num_points = np.size(x,0)
-	    for item in order:
-	        RPlot.append(RD[item])
-	        RPoints.append([x[item][0],x[item][1]])
+	# def _optics_cluster(self):
+	#     x = np.array(self.data)
+	#     RD, CD, order = OP.optics2(x,self.minpts,self.dist_matrix)
+	#     RPlot = []
+	#     RPoints = []
+	#     num_points = np.size(x,0)
+	#     for item in order:
+	#         RPlot.append(RD[item])
+	#         RPoints.append([x[item][0],x[item][1]])
 
-	    rootNode = AutoC.automaticCluster(RPlot, RPoints)
-	    leaves = AutoC.getLeaves(rootNode, [])
+	#     rootNode = AutoC.automaticCluster(RPlot, RPoints)
+	#     leaves = AutoC.getLeaves(rootNode, [])
 
-	    temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
-	    cluster_cnt = -1
-	    for leaf in leaves:
-	        cluster_cnt += 1
-	        for v in range(leaf.start, leaf.end):
-				cluster_idx = order[v]
-				temp_labels[cluster_idx] = cluster_cnt
-	    return temp_labels
+	#     temp_labels = np.ones(shape = (num_points), dtype = 'int') * -1
+	#     cluster_cnt = -1
+	#     for leaf in leaves:
+	#     	cluster_cnt += 1
+	#     	for v in range(leaf.start, leaf.end):
+	#     		cluster_idx = order[v]
+	#     		temp_labels[cluster_idx] = cluster_cnt
+	#     return temp_labels
 
 
 # location_data format:
@@ -832,16 +825,16 @@ class Users:
 			if u in self._data:
 				return self._data[u]
 			else:
-				print 'User id not found.\n'
+				print('User id not found.\n')
 				return 'User id not found.\n'
 		if type(u) is int:
 			if self._is_sorted:
 				return self._data[self._sorted_id[u]]
 			else:
-				print 'Data not in sorted order. User users.load() first.\n'
-				return 'Data not in sorted order. User users.load() first.\n'
-		print 'argument has to be either type int or str. \n'
-		return 'argument has to be either type int or str. \n'
+				print('Data not in sorted order. User users.load() first.\n')
+				return('Data not in sorted order. User users.load() first.\n')
+		print('argument has to be either type int or str. \n')
+		return('argument has to be either type int or str. \n')
 
 class User:
 	S2M = {'spring':[3,4,5],'summer':[6,7,8],'fall':[9,10,11],'winter':[12,1,2]}
@@ -925,7 +918,7 @@ class User:
 			if u in self._data:
 				return self._data[u]
 			else:
-				print 'User id not found.\n'
+				print('User id not found.\n')
 				return 'User id not found.\n'
 		if type(u) is int:
 			if u < len(self._data):
@@ -972,7 +965,7 @@ class User:
 	def print_users_size(user_id,user_size):
 		n_user = len(user_id)
 		for i in range(n_user):
-			print str(i+1) + ' - ' + user_id[i] + ': ' + str(user_size[i])
+			print(str(i+1) + ' - ' + user_id[i] + ': ' + str(user_size[i]))
 
 class DataEngine:
 	def __init__(self,season):
@@ -1024,7 +1017,7 @@ class DataEngine:
 
 	def run_cluster(self):
 		if not self._is_sufficient:
-			print 'not enough data\n'
+			print('not enough data\n')
 		else:
 			self._ce.run(show_time = True)
 			for daily_data in self._data.values():
