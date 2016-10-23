@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import Geohash
+import geohash
 from collections import Counter
 import anvil
 from anvil import api
@@ -73,7 +73,7 @@ def map_geo_hashed_value(l):
     l = sorted(l)
     return {k: index for index, k in enumerate(l)}
 
-    def trim_geo_hash_precision(hashed_values, precision=9):
+def trim_geo_hash_precision(hashed_values, precision=9):
     """
     Trims geo hash precision.
     
@@ -89,7 +89,7 @@ def map_geo_hashed_value(l):
     
     return hashed_values.map(lambda z: z[:precision])
 
-   def filter_out_rare_points(points, threshold_pct=0.5):
+def filter_out_rare_points(points, threshold_pct=0.5):
     """
     Filters out rare points.
     

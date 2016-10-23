@@ -5,7 +5,8 @@ import numpy as np
 from motif2 import *
 from pytz import timezone
 from sklearn.cluster import DBSCAN
-
+import scipy.spatial as ss
+import pandas as pd
 
 # website used to check actual location:
 # http://www.darrinward.com/lat-long/
@@ -36,6 +37,17 @@ def read_data(filename = 'valid_location_data.csv'):
 	users.sortuser()
 	print(users)
 	return users
+
+
+def cluster_dist_matrix(clusters):
+	n = len(clusters)
+	D = np.zeros(shape = [n,n], dtype = 'float')
+	for i in range(n-1):
+		for j in range(i,n):
+			D[i,j] = ss.distance.euclidean(clusters[i],clusters[j])
+			D[j,i] = D[i,j]
+	pd.DataFrame(D)
+	return D
 
 class Users:
 	def __init__(self):

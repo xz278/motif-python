@@ -326,4 +326,21 @@ t.clusters[0].idx_list
 from motifanalysis import *
 users = read_data('u010_rct@eureka.csv')
 u = users.get(0)
-u.run_analysis(daily_minpts = 3, global_minpts = 5)
+u.run_analysis(daily_algo = 'optics', daily_minpts = 4, daily_eps = 10, global_algo = 'dbscan', global_minpts = 4,global_eps = 10)
+
+
+from locationpublic import *
+import os
+import sys
+import eurekacluster
+import math
+
+uid = sys.argv[1]
+config = sys.argv[2] # paras for dbscan	
+paras = pd.read_csv(config,usecols=['minpts','eps'])
+minpts = paras.at[0,'minpts']
+eps = paras.at[0,'eps']
+eureka = pd.read_csv(uid, usecols=['time', 'longitude', 'latitude'])
+num_points = len(eureka)
+# add timezone info
+eureka = anvil.api.convert_time_zone(eureka,'time')

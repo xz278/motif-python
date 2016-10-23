@@ -487,7 +487,7 @@ class ClusterEngine():
 				f.write('\n')
 			f.write(str(self.labels[-1]))
 
-	def plot_cluster(self):
+	def plot_cluster(self,outputfilename = None):
 		temp_X = np.array(self.data)  
 		n = np.size(temp_X,0)
 		X = np.zeros(shape = [n,2], dtype = 'float')
@@ -510,10 +510,12 @@ class ClusterEngine():
 					# ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
 					# print c
 					ax.plot(X[i,0], X[i,1],color = clrs[c,:], marker = 'o', ms=5)
-		plt.savefig('Graph2.png', dpi=None, facecolor='w', edgecolor='w',
+		if outputfilename is None:
+			outputfilename = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.png'
+		plt.savefig(outputfilename, dpi=None, facecolor='w', edgecolor='w',
 		    orientation='portrait', papertype=None, format=None,
 		    transparent=False, bbox_inches=None, pad_inches=0.1)
-		plt.show()
+		# plt.show()
 
 	def get_parameters(self):
 		return self.eps, self.minpts
@@ -571,6 +573,40 @@ class ClusterEngine():
 	#     		cluster_idx = order[v]
 	#     		temp_labels[cluster_idx] = cluster_cnt
 	#     return temp_labels
+
+
+def plot_cluster(x,y,outputfilename = None):
+	temp_X = np.array(x)  
+	n = np.size(temp_X,0)
+	X = np.zeros(shape = [n,2], dtype = 'float')
+	X[:,0] = temp_X[:,1]
+	X[:,1] = temp_X[:,0]
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(X[:,0], X[:,1], 'y.')
+	unique_cluster = np.unique(y)
+	# unique_cluster = unique_cluster[1:]
+	index_to_del = np.where(unique_cluster == -1)[0]
+	unique_cluster = np.delete(unique_cluster, index_to_del)
+	clrs = np.random.rand(len(unique_cluster),3)
+	if len(unique_cluster) != 0:
+		for i in range(n):
+			c = y[i]
+			if c == -1:
+				continue
+			else:
+				# ax.plot(X[i,0], X[i,1], clrs[c][1]+'o', ms=5)
+				# print c
+				ax.plot(X[i,0], X[i,1],color = clrs[c,:], marker = 'o', ms=5)
+	if outputfilename is None:
+		outputfilename = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.png'
+
+	# plt.show()
+	plt.savefig(outputfilename, dpi=None, facecolor='w', edgecolor='w',
+	    orientation='portrait', papertype=None, format=None,
+	    transparent=False, bbox_inches=None, pad_inches=0.1)
+
+
 
 
 # location_data format:
